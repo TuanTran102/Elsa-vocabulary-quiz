@@ -43,7 +43,11 @@ describe('Leaderboard Integration', () => {
       removePlayer: jest.fn()
     };
  
-    new QuizGateway(io, quizRepositoryMock, quizAnswerServiceMock as any, leaderboardServiceMock as any, sessionServiceMock as any);
+    const gameFlowServiceMock = {
+      startQuiz: jest.fn()
+    };
+  
+    new QuizGateway(io, quizRepositoryMock, quizAnswerServiceMock as any, leaderboardServiceMock as any, sessionServiceMock as any, gameFlowServiceMock as any);
 
     server.listen(() => {
       port = (server.address() as any).port;

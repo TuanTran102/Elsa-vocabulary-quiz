@@ -39,8 +39,12 @@ describe('QuizGateway', () => {
       addPlayer: jest.fn(),
       removePlayer: jest.fn()
     };
+
+    const gameFlowServiceMock = {
+      startQuiz: jest.fn()
+    };
   
-    new QuizGateway(io, quizRepositoryMock, quizAnswerServiceMock as any, leaderboardServiceMock as any, sessionServiceMock as any);
+    new QuizGateway(io, quizRepositoryMock, quizAnswerServiceMock as any, leaderboardServiceMock as any, sessionServiceMock as any, gameFlowServiceMock as any);
 
     server.listen(() => {
       port = (server.address() as any).port;

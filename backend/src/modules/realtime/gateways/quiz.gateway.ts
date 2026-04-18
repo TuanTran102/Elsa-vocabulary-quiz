@@ -4,6 +4,7 @@ import { QuizRepository } from '../../quiz/repositories/quiz.repository.js';
 import { QuizAnswerService } from '../../quiz/services/quiz-answer.service.js';
 import { LeaderboardService } from '../../quiz/services/leaderboard.service.js';
 import { SessionService } from '../../session/session.service.js';
+import { GameFlowService } from '../services/game-flow.service.js';
 import { SessionStatus } from '../../session/session.types.js';
 import { MasterGuard } from '../guards/master.guard.js';
 import crypto from 'crypto';
@@ -16,7 +17,8 @@ export class QuizGateway {
     private quizRepository: QuizRepository,
     private quizAnswerService: QuizAnswerService,
     private leaderboardService: LeaderboardService,
-    private sessionService: SessionService
+    private sessionService: SessionService,
+    private gameFlowService: GameFlowService
   ) {
     const liveQuizNamespace = this.io.of('/live-quiz');
     
@@ -95,8 +97,11 @@ export class QuizGateway {
     // Game Control Events (Master only)
     socket.on('start_quiz', async () => {
       if (await MasterGuard.isMaster(socket, this.sessionService)) {
-        await this.sessionService.updateStatus(socket.data.pin, SessionStatus.IN_PROGRESS);
-        this.io.of('/live-quiz').to(socket.data.pin).emit('quiz_started');
+        try {
+          await this.gameFlowService.startQuiz(socket.data.pin);
+        } catch (error: any) {
+          socket.emit('error', { message: error.message });
+        }
       } else {
         socket.emit('error', { message: 'Unauthorized' });
       }

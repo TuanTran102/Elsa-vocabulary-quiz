@@ -8,6 +8,7 @@ import { ScoringService } from './modules/quiz/services/scoring.service.js';
 import { QuizAnswerService } from './modules/quiz/services/quiz-answer.service.js';
 import { LeaderboardService } from './modules/quiz/services/leaderboard.service.js';
 import { SessionService } from './modules/session/session.service.js';
+import { GameFlowService } from './modules/realtime/services/game-flow.service.js';
 import { pubClient } from './config/redis.js';
 import prisma from './config/db.js';
 import dotenv from 'dotenv';
@@ -31,11 +32,20 @@ const quizAnswerService = new QuizAnswerService(
   scoringService,
   quizRepository,
   prisma,
-  leaderboardService
+  leaderboardService,
+  sessionService
+);
+
+const gameFlowService = new GameFlowService(
+  io,
+  sessionService,
+  quizRepository,
+  leaderboardService,
+  prisma
 );
 
 // Initialize Gateways
-new QuizGateway(io, quizRepository, quizAnswerService, leaderboardService, sessionService);
+new QuizGateway(io, quizRepository, quizAnswerService, leaderboardService, sessionService, gameFlowService);
 
 if (process.env.NODE_ENV !== 'test') {
   server.listen(port, () => {

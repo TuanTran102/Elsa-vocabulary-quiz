@@ -174,6 +174,35 @@ export class SessionService {
     );
   }
 
+  async updateSession(pin: string, data: Partial<GameSession>) {
+    const session = await this.getSession(pin);
+    if (!session) throw new Error('Session not found');
+
+    const updatedSession = { ...session, ...data };
+    await this.redis.set(
+      `session:${pin}`,
+      JSON.stringify(updatedSession),
+      'EX',
+      this.SESSION_TTL
+    );
+  }
+
+  async incrementAnswerDistribution(pin: string, questionId: string, answer: string) {
+    const key = `session:${pin}:q:${questionId}:dist`;
+    await this.redis.hincrby(key, answer, 1);
+    await this.redis.expire(key, this.SESSION_TTL);
+  }
+
+  async getAnswerDistribution(pin: string, questionId: string): Promise<Record<string, number>> {
+    const key = `session:${pin}:q:${questionId}:dist`;
+    const data = await this.redis.hgetall(key);
+    const distribution: Record<string, number> = {};
+    for (const [key, value] of Object.entries(data)) {
+      distribution[key] = parseInt(value, 10);
+    }
+    return distribution;
+  }
+
   private async generateUniquePin(): Promise<string> {
     let pin = '';
     let attempts = 0;

@@ -3,6 +3,7 @@ import { QuizRedisRepository } from '../repositories/quiz-redis.repository.js';
 import { ScoringService } from './scoring.service.js';
 import { QuizRepository } from '../repositories/quiz.repository.js';
 import { LeaderboardService } from './leaderboard.service.js';
+import { SessionService } from '../../session/session.service.js';
 
 export class QuizAnswerService {
   constructor(
@@ -10,7 +11,8 @@ export class QuizAnswerService {
     private scoringService: ScoringService,
     private quizRepo: QuizRepository,
     private prisma: PrismaClient,
-    private leaderboardService: LeaderboardService
+    private leaderboardService: LeaderboardService,
+    private sessionService: SessionService
   ) {}
 
   /**
@@ -70,6 +72,9 @@ export class QuizAnswerService {
         // Update Redis leaderboard using PIN as namespace
         await this.leaderboardService.addPoints(pin, playerResultId, pointsAwarded);
       }
+
+      // Track answer distribution
+      await this.sessionService.incrementAnswerDistribution(pin, questionId, answer);
 
       return createdAnswer;
     });
