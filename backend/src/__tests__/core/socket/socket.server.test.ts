@@ -14,15 +14,18 @@ describe('SocketServer', () => {
     SocketServer.io = undefined;
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     try {
-      if (SocketServer.getIO()) {
-        SocketServer.getIO().close();
+      const io = SocketServer.getIO();
+      if (io) {
+        io.close();
       }
     } catch (e) {
       // Ignore if not initialized
     }
-    httpServer.close();
+    if (httpServer && httpServer.listening) {
+      await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    }
   });
   
   afterAll(async () => {

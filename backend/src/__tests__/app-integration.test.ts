@@ -2,6 +2,7 @@ import { jest, describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import request from 'supertest';
 import app from '../app.js';
 import prisma from '../config/db.js';
+import { disconnectRedis } from '../config/redis.js';
 
 describe('Quiz Integration Tests', () => {
   let quizId: string;
@@ -45,6 +46,7 @@ describe('Quiz Integration Tests', () => {
       where: { id: quizId }
     });
     await prisma.$disconnect();
+    await disconnectRedis();
   });
 
   describe('GET /api/v1/quizzes', () => {

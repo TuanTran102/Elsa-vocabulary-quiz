@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import { io as Client, Socket } from 'socket.io-client';
-import { server } from '../server.js';
+import { server, io } from '../server.js';
 import { disconnectRedis } from '../config/redis.js';
+import prisma from '../config/db.js';
 import type { AddressInfo } from 'net';
 
 describe('Socket.io Handshake', () => {
@@ -25,7 +26,11 @@ describe('Socket.io Handshake', () => {
     if (clientSocket) {
       clientSocket.close();
     }
+    if (io) {
+      io.close();
+    }
     await new Promise<void>((resolve) => server.close(() => resolve()));
+    await prisma.$disconnect();
     await disconnectRedis();
   });
 

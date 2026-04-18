@@ -38,10 +38,16 @@ describe('QuizGateway', () => {
     });
   });
 
-  afterEach(() => {
-    io.close();
-    clientSocket.close();
-    server.close();
+  afterEach(async () => {
+    if (clientSocket) {
+      clientSocket.close();
+    }
+    if (io) {
+      io.close();
+    }
+    if (server && server.listening) {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
   
   afterAll(async () => {

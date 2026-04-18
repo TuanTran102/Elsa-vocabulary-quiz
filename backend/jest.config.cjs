@@ -13,4 +13,11 @@ module.exports = {
       },
     ],
   },
+  testPathIgnorePatterns: [
+    "/node_modules/",
+    "/\\._"
+  ],
+  watchPathIgnorePatterns: [
+    "/\\._"
+  ],
 };
