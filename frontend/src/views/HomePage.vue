@@ -38,7 +38,7 @@
         </router-link>
 
         <!-- Host CTA -->
-        <a href="https://elsa.edu" target="_blank" class="action-card group border-white/10">
+        <router-link to="/create" class="action-card group border-white/10">
           <div class="card-inner p-8 rounded-3xl space-y-4 bg-white/5 border border-white/10">
             <div class="icon-box bg-purple-500 group-hover:bg-purple-400">
               <i class="pi pi-plus text-2xl"></i>
@@ -48,7 +48,7 @@
               <p class="text-sm text-white/60">Manage your own classroom</p>
             </div>
           </div>
-        </a>
+        </router-link>
       </div>
 
       <footer class="pt-12 text-white/40 text-sm font-medium tracking-tight">

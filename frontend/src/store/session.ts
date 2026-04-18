@@ -20,6 +20,18 @@ export const useSessionStore = defineStore('session', () => {
   const quizTitle = ref('')
   const status = ref('waiting')
   const players = ref<Player[]>([])
+  
+  // Safe localStorage access for test environments
+  const getInitialToken = () => {
+    try {
+      return (typeof localStorage !== 'undefined' && localStorage.getItem) 
+        ? localStorage.getItem('masterToken') || '' 
+        : ''
+    } catch (e) {
+      return ''
+    }
+  }
+  const masterToken = ref(getInitialToken())
 
   function setSession(info: SessionInfo) {
     pin.value = info.pin
@@ -27,6 +39,15 @@ export const useSessionStore = defineStore('session', () => {
     quizTitle.value = info.quizTitle
     status.value = info.status
     players.value = info.players
+  }
+
+  function setMasterToken(token: string) {
+    masterToken.value = token
+    try {
+      if (typeof localStorage !== 'undefined' && localStorage.setItem) {
+        localStorage.setItem('masterToken', token)
+      }
+    } catch (e) {}
   }
 
   function addPlayer(player: Player) {
@@ -49,6 +70,12 @@ export const useSessionStore = defineStore('session', () => {
     quizTitle.value = ''
     status.value = 'waiting'
     players.value = []
+    masterToken.value = ''
+    try {
+      if (typeof localStorage !== 'undefined' && localStorage.removeItem) {
+        localStorage.removeItem('masterToken')
+      }
+    } catch (e) {}
   }
 
   return {
@@ -57,7 +84,9 @@ export const useSessionStore = defineStore('session', () => {
     quizTitle,
     status,
     players,
+    masterToken,
     setSession,
+    setMasterToken,
     addPlayer,
     removePlayer,
     setStatus,

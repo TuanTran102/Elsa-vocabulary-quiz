@@ -11,6 +11,7 @@ describe('GameFlowService', () => {
   let service: GameFlowService;
   let emitMock: any;
   let toMock: any;
+  let sessionStore: Map<string, any>;
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -21,14 +22,14 @@ describe('GameFlowService', () => {
       of: jest.fn().mockReturnValue({ to: toMock })
     };
 
-    const sessionStore = new Map<string, any>();
+    sessionStore = new Map<string, any>();
     sessionServiceMock = {
-      getSession: jest.fn().mockImplementation(async (pin) => sessionStore.get(pin)),
-      updateStatus: jest.fn().mockImplementation(async (pin, status) => {
+      getSession: jest.fn().mockImplementation(async (pin: any) => sessionStore.get(pin)),
+      updateStatus: jest.fn().mockImplementation(async (pin: any, status: any) => {
         const s = sessionStore.get(pin);
         if (s) s.status = status;
       }),
-      updateSession: jest.fn().mockImplementation(async (pin, data) => {
+      updateSession: jest.fn().mockImplementation(async (pin: any, data: any) => {
         const s = sessionStore.get(pin);
         if (s) Object.assign(s, data);
       }),
@@ -195,7 +196,12 @@ describe('GameFlowService', () => {
         data: expect.objectContaining({ status: 'COMPLETED' })
       }));
       expect(prismaMock.playerResult.createMany).toHaveBeenCalledWith({
-        data: [{ gameRoomId: 'room_1', nickname: 'P1', score: 100 }]
+        data: [{ 
+          gameRoomId: 'room_1', 
+          nickname: 'P1', 
+          finalScore: 100,
+          completedAt: expect.any(Date)
+        }]
       });
       expect(emitMock).toHaveBeenCalledWith('quiz_completed', expect.objectContaining({
         final_leaderboard: [{ nickname: 'P1', score: 100 }]

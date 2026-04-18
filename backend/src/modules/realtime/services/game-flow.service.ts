@@ -129,7 +129,8 @@ export class GameFlowService {
         data: players.map(p => ({
           gameRoomId: session.id,
           nickname: p.nickname,
-          score: p.score
+          finalScore: p.score,
+          completedAt: new Date()
         }))
       });
     }

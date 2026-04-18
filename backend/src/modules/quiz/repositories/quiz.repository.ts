@@ -24,6 +24,7 @@ export class QuizRepository {
             id: true,
             content: true,
             options: true,
+            correctAnswer: true,
             points: true,
             timeLimitSeconds: true
           }
