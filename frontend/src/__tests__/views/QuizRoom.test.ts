@@ -14,15 +14,22 @@ vi.mock('vue-router', () => ({
 
 // Mock useSocket
 const mockEmit = vi.fn();
+const mockConnect = vi.fn();
+const mockOn = vi.fn();
+const mockOff = vi.fn();
 vi.mock('@/composables/useSocket', () => ({
   useSocket: () => ({
     emit: mockEmit,
+    connect: mockConnect,
+    on: mockOn,
+    off: mockOff
   })
 }));
 
 describe('QuizRoom.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
   });
 
   const createWrapper = (initialState = {}) => {
@@ -59,7 +66,7 @@ describe('QuizRoom.vue', () => {
 
   it('renders waiting state', () => {
     const wrapper = createWrapper();
-    expect(wrapper.text()).toContain('Quiz ID: 123');
+    expect(wrapper.text()).toContain('Loading Quiz...');
     expect(wrapper.text()).toContain('Waiting to Start');
     expect(wrapper.find('.pi-spinner').exists()).toBe(true);
   });
@@ -103,7 +110,7 @@ describe('QuizRoom.vue', () => {
     const buttons = wrapper.findAll('.answer-button');
     await buttons[0].trigger('click');
 
-    expect(mockEmit).toHaveBeenCalledWith('submit_answer', { optionId: 'a' });
+    expect(mockEmit).toHaveBeenCalledWith('submit_answer', { quiz_id: '123', question_id: 'q1', answer: 'a' });
     
     // Check disabled using the prop binding logic
     // We mocked the PrimeVue Button to take disabled prop and put it on <button>

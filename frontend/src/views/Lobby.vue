@@ -23,7 +23,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useQuizStore } from '@/store/quiz';
 import { useRouter } from 'vue-router';
 import Card from 'primevue/card';
@@ -31,6 +31,10 @@ import Button from 'primevue/button';
 
 const store = useQuizStore();
 const router = useRouter();
+
+onMounted(() => {
+  store.fetchQuizzes();
+});
 
 const availableQuizzes = computed(() => store.availableQuizzes);
 

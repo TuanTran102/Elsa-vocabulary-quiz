@@ -66,5 +66,20 @@ export const useQuizStore = defineStore('quiz', {
     setUserScore(score: number) {
       this.userScore = score;
     },
+    async fetchQuizzes() {
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const response = await fetch(`${apiUrl}/api/v1/quizzes`);
+        if (response.ok) {
+          const json = await response.json();
+          // The API returns an object { data: [...] }
+          this.setQuizzes(json.data || []);
+        } else {
+          console.error('Failed to fetch quizzes:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error fetching quizzes:', error);
+      }
+    },
   },
 });

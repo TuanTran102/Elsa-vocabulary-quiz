@@ -3,7 +3,7 @@
     <!-- Top Bar: Timer and Status -->
     <header class="flex justify-between items-center bg-white/10 p-4 rounded-xl shadow-lg backdrop-blur-md mb-6 border border-white/20">
       <div>
-        <h1 class="text-2xl font-bold text-white drop-shadow">Quiz ID: <span class="font-mono text-blue-200">{{ quizId }}</span></h1>
+        <h1 class="text-2xl font-bold text-white drop-shadow">{{ quizStore.currentQuiz?.title || 'Loading Quiz...' }}</h1>
         <Badge :value="quizStore.status" :severity="statusSeverity" class="mt-2 text-sm px-3 py-1 font-bold uppercase tracking-wider" />
       </div>
       <div v-if="quizStore.status === 'in_progress'" class="flex flex-col items-end">
@@ -111,6 +111,97 @@ const quizId = route.params.id as string;
 const isAnswering = ref(false);
 const selectedOption = ref<string | null>(null);
 const maxTime = ref(30);
+let timerInterval: any = null;
+
+import { onMounted, onUnmounted } from 'vue';
+
+onMounted(async () => {
+  // Connect socket and join room
+  const { connect } = useSocket();
+  connect();
+  emit('join_quiz', { quiz_id: quizId });
+
+  // Fetch quiz details because there is no host implemented yet
+  try {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const response = await fetch(`${apiUrl}/api/v1/quizzes/${quizId}`);
+    if (response.ok) {
+      const json = await response.json();
+      const rawQuestions = json.data?.questions || [];
+      
+      quizStore.setCurrentQuiz({
+        id: json.data.id,
+        title: json.data.title,
+        description: json.data.description
+      });
+      
+      const formattedQuestions = rawQuestions.map((q: any) => ({
+        id: q.id,
+        text: q.content,
+        options: q.options.map((opt: string) => ({ id: opt, text: opt })),
+      }));
+      
+      quizStore.setQuestions(formattedQuestions);
+      
+      // Auto-start quiz immediately to enable testing
+      if (formattedQuestions.length > 0) {
+        startNextQuestion(0);
+      } else {
+        quizStore.setStatus('completed');
+      }
+    }
+  } catch (e) {
+    console.error('Failed to fetch quiz', e);
+  }
+
+  // Socket event listeners
+  const { on } = useSocket();
+  on('leaderboard_update', (data: any) => {
+    quizStore.updateLeaderboard(data);
+  });
+  
+  on('answer_status', (data: any) => {
+    // Ideally we would show a Toast here, but we don't have primevue/usetoast available natively in setup here
+    if (data.success && data.is_correct) {
+      quizStore.setUserScore(quizStore.userScore + data.points_awarded);
+    }
+  });
+});
+
+onUnmounted(() => {
+  if (timerInterval) clearInterval(timerInterval);
+  const { off } = useSocket();
+  off('leaderboard_update');
+  off('answer_status');
+});
+
+const startNextQuestion = (index: number) => {
+  const questions = quizStore.questions;
+  if (index >= questions.length) {
+    quizStore.setStatus('completed');
+    return;
+  }
+  
+  quizStore.setStatus('in_progress');
+  quizStore.setCurrentQuestion(questions[index]);
+  
+  maxTime.value = 30; // standard time
+  quizStore.setTimeRemaining(30);
+  isAnswering.value = false;
+  selectedOption.value = null;
+  
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    quizStore.setTimeRemaining(quizStore.timeRemaining - 1);
+    
+    if (quizStore.timeRemaining <= 0) {
+      clearInterval(timerInterval);
+      // Move to next question after a 2-second pause
+      setTimeout(() => startNextQuestion(index + 1), 2000);
+    }
+  }, 1000);
+};
+
 
 const sortedLeaderboard = computed(() => {
   return [...quizStore.leaderboard].sort((a, b) => b.score - a.score);
@@ -137,7 +228,14 @@ const submitAnswer = (optionId: string) => {
   if (isAnswering.value || quizStore.timeRemaining === 0) return;
   isAnswering.value = true;
   selectedOption.value = optionId;
-  emit('submit_answer', { optionId });
+  
+  if (quizStore.currentQuestion) {
+    emit('submit_answer', { 
+      quiz_id: quizId,
+      question_id: quizStore.currentQuestion.id,
+      answer: optionId
+    });
+  }
 };
 
 const goHome = () => {
