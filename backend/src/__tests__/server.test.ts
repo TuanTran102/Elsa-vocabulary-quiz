@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { io as Client, Socket } from 'socket.io-client';
 import { server } from '../server.js';
+import { disconnectRedis } from '../config/redis.js';
 import type { AddressInfo } from 'net';
 
 describe('Socket.io Handshake', () => {
@@ -20,11 +21,12 @@ describe('Socket.io Handshake', () => {
     });
   }, 10000);
 
-  afterAll((done) => {
+  afterAll(async () => {
     if (clientSocket) {
       clientSocket.close();
     }
-    server.close(done);
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await disconnectRedis();
   });
 
   it('should connect to the server', () => {

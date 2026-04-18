@@ -10,9 +10,11 @@ datasource db {
 model User {
   id        String        @id @default(uuid())
   username  String        @unique
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
   sessions  QuizSession[]
+
+  @@map("users")
 }
 
 enum QuizStatus {
@@ -25,46 +27,53 @@ model Quiz {
   id        String        @id @default(uuid())
   title     String
   status    QuizStatus    @default(DRAFT)
-  startedAt DateTime?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  startedAt DateTime?     @map("started_at")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
   questions Question[]
   sessions  QuizSession[]
+
+  @@map("quizzes")
 }
 
 model Question {
   id               String   @id @default(uuid())
-  quizId           String
+  quizId           String   @map("quiz_id")
   content          String
   options          Json     // Array of strings
-  correctAnswer    String
+  correctAnswer    String   @map("correct_answer")
   points           Int      @default(1000)
-  timeLimitSeconds Int      @default(30)
+  timeLimitSeconds Int      @default(30) @map("time_limit_seconds")
   quiz             Quiz     @relation(fields: [quizId], references: [id])
   answers          Answer[]
+
+  @@map("questions")
 }
 
 model QuizSession {
   id         String   @id @default(uuid())
-  quizId     String
-  userId     String
-  totalScore Int      @default(0)
-  joinedAt   DateTime @default(now())
+  quizId     String   @map("quiz_id")
+  userId     String   @map("user_id")
+  totalScore Int      @default(0) @map("total_score")
+  joinedAt   DateTime @default(now()) @map("joined_at")
   quiz       Quiz     @relation(fields: [quizId], references: [id])
   user       User     @relation(fields: [userId], references: [id])
   answers    Answer[]
 
   @@unique([quizId, userId])
+  @@map("quiz_sessions")
 }
 
 model Answer {
   id            String      @id @default(uuid())
-  sessionId     String
-  questionId    String
-  userAnswer    String
-  isCorrect     Boolean
-  pointsAwarded Int
-  submittedAt   DateTime    @default(now())
+  sessionId     String      @map("session_id")
+  questionId    String      @map("question_id")
+  userAnswer    String      @map("user_answer")
+  isCorrect     Boolean     @map("is_correct")
+  pointsAwarded Int         @map("points_awarded")
+  submittedAt   DateTime    @default(now()) @map("submitted_at")
   session       QuizSession @relation(fields: [sessionId], references: [id])
   question      Question    @relation(fields: [questionId], references: [id])
+
+  @@map("answers")
 }

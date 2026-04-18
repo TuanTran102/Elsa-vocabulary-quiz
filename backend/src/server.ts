@@ -1,8 +1,9 @@
 import http from 'http';
-import { Server } from 'socket.io';
-import { createAdapter } from '@socket.io/redis-adapter';
 import app from './app.js';
-import { pubClient, subClient } from './config/redis.js';
+import { SocketServer } from './core/socket/socket.server.js';
+import { QuizGateway } from './modules/realtime/quiz.gateway.js';
+import { QuizRepository } from './modules/quiz/repositories/quiz.repository.js';
+import prisma from './config/db.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -10,22 +11,12 @@ dotenv.config();
 const port = process.env.PORT || 3000;
 const server = http.createServer(app);
 
-const io = new Server(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
-  }
-});
+// Initialize SocketServer
+const io = SocketServer.init(server);
 
-io.adapter(createAdapter(pubClient, subClient));
-
-io.on('connection', (socket) => {
-  console.log('a user connected', socket.id);
-  
-  socket.on('disconnect', () => {
-    console.log('user disconnected', socket.id);
-  });
-});
+// Initialize Gateways
+const quizRepository = new QuizRepository(prisma);
+new QuizGateway(io, quizRepository);
 
 if (process.env.NODE_ENV !== 'test') {
   server.listen(port, () => {

@@ -29,11 +29,21 @@ describe('Quiz Integration Tests', () => {
   });
 
   afterAll(async () => {
-    // Cleanup
-    await prisma.answer.deleteMany();
-    await prisma.question.deleteMany();
-    await prisma.quizSession.deleteMany();
-    await prisma.quiz.deleteMany();
+    // Cleanup only test data
+    await prisma.answer.deleteMany({
+      where: {
+        question: { quizId: quizId }
+      }
+    });
+    await prisma.quizSession.deleteMany({
+      where: { quizId: quizId }
+    });
+    await prisma.question.deleteMany({
+      where: { quizId: quizId }
+    });
+    await prisma.quiz.delete({
+      where: { id: quizId }
+    });
     await prisma.$disconnect();
   });
 

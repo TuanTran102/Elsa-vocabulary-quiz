@@ -10,3 +10,12 @@ export const subClient = pubClient.duplicate();
 
 pubClient.on('error', (err: Error) => console.error('Redis Pub Client Error', err));
 subClient.on('error', (err: Error) => console.error('Redis Sub Client Error', err));
+
+export const disconnectRedis = async () => {
+  if (pubClient.status !== 'end') {
+    await pubClient.quit().catch(() => {});
+  }
+  if (subClient.status !== 'end') {
+    await subClient.quit().catch(() => {});
+  }
+};
