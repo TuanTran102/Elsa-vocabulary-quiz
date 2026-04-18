@@ -58,7 +58,7 @@ model PlayerResult {
   nickname    String
   finalScore  Int       @default(0) @map("final_score")
   rank        Int?
-  completedAt DateTime  @map("completed_at")
+  completedAt DateTime? @map("completed_at")
   gameRoom    GameRoom  @relation(fields: [gameRoomId], references: [id])
   answers     Answer[]
 

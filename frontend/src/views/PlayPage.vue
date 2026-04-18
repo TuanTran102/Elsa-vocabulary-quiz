@@ -45,15 +45,30 @@ const syncSession = async () => {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
     const response = await fetch(`${apiUrl}/v1/sessions/${pin}`)
     if (response.ok) {
-      const data = await response.json()
-      if (data.status === 'in_progress' && data.currentQuestion) {
-        question.value = data.currentQuestion
-        questionIndex.value = data.questionIndex
-        totalQuestions.value = data.totalQuestions
-        timeRemaining.value = data.timeRemaining
-        hasAnswered.value = data.hasAnswered || false
-        startTimer(data.timeRemaining)
-      } else if (data.status === 'finished') {
+      const { data } = await response.json()
+      if (data.status === 'IN_PROGRESS' && data.currentQuestion) {
+        // Normalize options for current question
+        const rawOptions: any[] = data.currentQuestion.options || []
+        const normalizedOptions = rawOptions.map((opt: any, index: number) => {
+          if (typeof opt === 'string') return { id: opt, text: opt }
+          return { id: opt.id || String(opt), text: opt.text || opt.content || String(opt) }
+        })
+
+        question.value = {
+          ...data.currentQuestion,
+          options: normalizedOptions
+        }
+        questionIndex.value = data.currentQuestionIndex || 0
+        totalQuestions.value = data.totalQuestions || 0
+        
+        // Calculate remaining time
+        if (data.questionStartedAt && data.currentQuestion.timeLimitSeconds) {
+          const elapsed = Math.floor((Date.now() - new Date(data.questionStartedAt).getTime()) / 1000)
+          const remaining = Math.max(0, data.currentQuestion.timeLimitSeconds - elapsed)
+          timeRemaining.value = remaining
+          if (remaining > 0) startTimer(remaining)
+        }
+      } else if (data.status === 'COMPLETED') {
         router.push(`/results/${pin}`)
       }
     }
@@ -65,12 +80,15 @@ const syncSession = async () => {
 const submitAnswer = (optionId: string) => {
   if (hasAnswered.value || showDistribution.value) return
   
+  const selectedOption = question.value?.options.find((o: any) => o.id === optionId)
+  if (!selectedOption) return
+
   selectedAnswerId.value = optionId
   hasAnswered.value = true
   
   socket.emit('submit_answer', {
     question_id: question.value?.id,
-    answer: optionId
+    answer: selectedOption.text // Send the actual text as expected by backend
   })
 }
 
@@ -85,17 +103,18 @@ const exitQuiz = () => {
 }
 
 onMounted(() => {
+  if (socket.socket && !socket.socket.connected) {
+    socket.connect()
+  }
+  
   syncSession()
 
   socket.on('question_started', (data: any) => {
     // Backend options is a JSON array of strings: ["Paris", "London", ...]
-    // Normalize to { id, text } objects that the template expects
     const rawOptions: any[] = data.options || data.question?.options || []
     const normalizedOptions = rawOptions.map((opt: any, index: number) => {
-      if (typeof opt === 'string') {
-        return { id: `opt_${index}`, text: opt }
-      }
-      return { id: opt.id || `opt_${index}`, text: opt.text || opt.content || String(opt) }
+      if (typeof opt === 'string') return { id: opt, text: opt }
+      return { id: opt.id || String(opt), text: opt.text || opt.content || String(opt) }
     })
 
     question.value = {
@@ -211,19 +230,8 @@ const getOptionClass = (optionId: string) => {
           :class="getOptionClass(option.id)"
           data-testid="option-button"
         >
-          <!-- Distribution Bar -->
-          <div
-            v-if="showDistribution"
-            class="absolute left-0 bottom-0 h-1 bg-white/30 transition-all duration-1000"
-            :style="{ width: (distribution[option.id] || 0) + '%' }"
-            :data-testid="'distribution-bar-' + option.id"
-          ></div>
-          
           <div class="flex justify-between items-center relative z-10">
             <span>{{ option.text }}</span>
-            <span v-if="showDistribution" class="text-sm font-mono">
-              {{ Math.round(distribution[option.id] || 0) }}%
-            </span>
           </div>
         </button>
       </div>

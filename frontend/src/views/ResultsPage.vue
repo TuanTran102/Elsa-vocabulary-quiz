@@ -18,7 +18,7 @@ const fetchFinalResults = async () => {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
     const response = await fetch(`${apiUrl}/v1/sessions/${pin}`)
     if (response.ok) {
-      const data = await response.json()
+      const { data } = await response.json()
       leaderboard.value = data.leaderboard || []
     }
   } catch (error) {

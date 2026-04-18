@@ -41,7 +41,8 @@ const gameFlowService = new GameFlowService(
   sessionService,
   quizRepository,
   leaderboardService,
-  prisma
+  prisma,
+  quizRedisRepository
 );
 
 // Initialize Gateways

@@ -81,8 +81,8 @@ export class QuizGateway {
         if (!session) {
           return socket.emit('error', { message: 'Session not found' });
         }
-        if (session.status !== SessionStatus.WAITING) {
-          return socket.emit('error', { message: 'Quiz already in progress or completed' });
+        if (session.status === SessionStatus.COMPLETED) {
+          return socket.emit('error', { message: 'Quiz already completed' });
         }
 
         const playerId = crypto.randomUUID();
@@ -94,6 +94,7 @@ export class QuizGateway {
 
         await socket.join(pin);
         await this.sessionService.addPlayer(pin, { 
+          id: playerId,
           nickname, 
           socketId: socket.id, 
           score: 0, 
@@ -152,19 +153,28 @@ export class QuizGateway {
         const session = await this.sessionService.getSession(pin);
         if (!session) throw new Error('Session not found');
 
-        const result = await this.quizAnswerService.submitAnswer(playerId, session.quizId, question_id, answer);
+        const result = await this.quizAnswerService.submitAnswer(playerId, pin, question_id, answer);
         
-        socket.emit('answer_status', {
+        // Fetch latest stats for this player
+        const totalScore = await this.leaderboardService.getPlayerScore(pin, playerId);
+        const rank = await this.leaderboardService.getPlayerRank(pin, playerId);
+
+        socket.emit('answer_result', {
           success: true,
-          is_correct: result.isCorrect,
-          points_awarded: result.pointsAwarded
+          isCorrect: result.isCorrect,
+          points: result.pointsAwarded,
+          totalScore: totalScore,
+          rank: rank
         });
 
+        // Update distribution in real-time
+        this.requestDistributionUpdate(pin, question_id);
+
         if (result.pointsAwarded > 0) {
-          this.requestLeaderboardUpdate(pin, session.quizId);
+          this.requestLeaderboardUpdate(pin);
         }
       } catch (error: any) {
-        socket.emit('answer_status', {
+        socket.emit('answer_result', {
           success: false,
           message: error.message
         });
@@ -182,7 +192,7 @@ export class QuizGateway {
     });
   }
 
-  private requestLeaderboardUpdate(pin: string, quizId: string) {
+  private requestLeaderboardUpdate(pin: string) {
     if (this.leaderboardThrottles.get(pin)) {
       return;
     }
@@ -191,13 +201,25 @@ export class QuizGateway {
 
     setTimeout(async () => {
       try {
-        const leaderboard = await this.leaderboardService.getLeaderboard(quizId);
-        this.io.of('/live-quiz').to(pin).emit('leaderboard_update', leaderboard);
+        const leaderboard = await this.leaderboardService.getLeaderboard(pin);
+        this.io.of('/live-quiz').to(pin).emit('leaderboard_update', { leaderboard });
       } catch (error) {
         console.error('Error broadcasting leaderboard:', error);
       } finally {
         this.leaderboardThrottles.set(pin, false);
       }
     }, 1000);
+  }
+
+  private requestDistributionUpdate(pin: string, questionId: string) {
+    // Throttle slightly to avoid too many emits if many players answer at once
+    setTimeout(async () => {
+      try {
+        const distribution = await this.sessionService.getAnswerDistribution(pin, questionId);
+        this.io.of('/live-quiz').to(pin).emit('answer_distribution_update', distribution);
+      } catch (error) {
+        console.error('Error broadcasting distribution:', error);
+      }
+    }, 500);
   }
 }

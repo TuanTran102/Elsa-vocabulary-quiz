@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import { SessionService } from '../../session/session.service.js';
 import { QuizRepository } from '../../quiz/repositories/quiz.repository.js';
 import { LeaderboardService } from '../../quiz/services/leaderboard.service.js';
+import { QuizRedisRepository } from '../../quiz/repositories/quiz-redis.repository.js';
 import { SessionStatus } from '../../session/session.types.js';
 import type { PrismaClient } from '@prisma/client';
 
@@ -13,7 +14,8 @@ export class GameFlowService {
     private sessionService: SessionService,
     private quizRepository: QuizRepository,
     private leaderboardService: LeaderboardService,
-    private prisma: PrismaClient
+    private prisma: PrismaClient,
+    private redisRepo: QuizRedisRepository
   ) {}
 
   async startQuiz(pin: string) {
@@ -60,6 +62,9 @@ export class GameFlowService {
       currentQuestionIndex: index,
       questionStartedAt
     });
+
+    // Set start time in Redis for scoring
+    await this.redisRepo.setQuestionStartTime(pin, question.id, questionStartedAt);
 
     this.io.of('/live-quiz').to(pin).emit('question_started', {
       question_id: question.id,
@@ -122,19 +127,28 @@ export class GameFlowService {
       data: { completedAt: new Date(), status: 'COMPLETED' }
     });
 
-    const leaderboard = await this.leaderboardService.getLeaderboard(session.pin);
+    const leaderboard = await this.leaderboardService.getLeaderboard(session.pin, 1000);
     
-    // Persist final results
-    const players = session.players || [];
-    if (players.length > 0) {
-      await this.prisma.playerResult.createMany({
-        data: players.map(p => ({
-          gameRoomId: session.id,
-          nickname: p.nickname,
-          finalScore: p.score,
-          completedAt: new Date()
-        }))
-      });
+    // Persist final results to DB - Update existing PlayerResult records
+    if (leaderboard.length > 0) {
+      await this.prisma.$transaction(
+        leaderboard.map(p => {
+          // Identify player by nickname and gameRoomId (or use external ID if we had it mapped)
+          // Since we created them on join, we should find them easily.
+          // Wait, leaderboard entries have ts.userId which is our playerId (UUID).
+          // We need to return that ID from getLeaderboard.
+          return this.prisma.playerResult.updateMany({
+            where: { 
+              gameRoomId: session.id,
+              nickname: p.nickname 
+            },
+            data: {
+              finalScore: p.score,
+              completedAt: new Date()
+            }
+          });
+        })
+      );
     }
 
     this.io.of('/live-quiz').to(pin).emit('quiz_completed', { final_leaderboard: leaderboard });

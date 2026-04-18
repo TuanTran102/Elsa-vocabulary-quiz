@@ -83,4 +83,22 @@ export class QuizRedisRepository {
     const key = `session:${pin}:player:${playerId}:nickname`;
     await this.client.set(key, nickname, 'EX', 7200); // 2 hour TTL
   }
+  
+  /**
+   * Gets a player's score from the leaderboard.
+   */
+  async getPlayerScore(pin: string, playerId: string): Promise<number> {
+    const key = `quiz:${pin}:leaderboard`;
+    const score = await this.client.zscore(key, playerId);
+    return score ? parseFloat(score) : 0;
+  }
+
+  /**
+   * Gets a player's rank from the leaderboard (1-indexed).
+   */
+  async getPlayerRank(pin: string, playerId: string): Promise<number> {
+    const key = `quiz:${pin}:leaderboard`;
+    const rank = await this.client.zrevrank(key, playerId);
+    return rank !== null ? rank + 1 : 0;
+  }
 }

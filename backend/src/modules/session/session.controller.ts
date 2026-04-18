@@ -1,8 +1,15 @@
 import type { Request, Response } from 'express';
 import { SessionService } from './session.service.js';
+import { QuizRepository } from '../quiz/repositories/quiz.repository.js';
+import { LeaderboardService } from '../quiz/services/leaderboard.service.js';
+import { SessionStatus } from './session.types.js';
 
 export class SessionController {
-  constructor(private readonly sessionService: SessionService) {}
+  constructor(
+    private readonly sessionService: SessionService,
+    private readonly quizRepository: QuizRepository,
+    private readonly leaderboardService: LeaderboardService
+  ) {}
 
   async create(req: Request, res: Response) {
     try {
@@ -42,12 +49,36 @@ export class SessionController {
         return res.status(404).json({ message: 'Session not found or completed' });
       }
 
+      let currentQuestion = null;
+      if (session.status === SessionStatus.IN_PROGRESS && session.currentQuestionIndex !== undefined) {
+        const quiz = await this.quizRepository.findById(session.quizId);
+        if (quiz && quiz.questions[session.currentQuestionIndex]) {
+          const q = quiz.questions[session.currentQuestionIndex];
+          currentQuestion = {
+            id: q.id,
+            text: q.content,
+            options: q.options,
+            timeLimitSeconds: q.timeLimitSeconds
+          };
+        }
+      }
+
+      let leaderboard = [];
+      if (session.status === SessionStatus.IN_PROGRESS || session.status === SessionStatus.COMPLETED) {
+        leaderboard = await this.leaderboardService.getLeaderboard(session.pin);
+      }
+
       return res.status(200).json({
         data: {
           game_room_id: session.id,
           quiz_title: session.quizTitle,
           status: session.status,
-          player_count: session.playerCount
+          player_count: session.playerCount,
+          currentQuestionIndex: session.currentQuestionIndex,
+          totalQuestions: session.totalQuestions,
+          questionStartedAt: session.questionStartedAt,
+          currentQuestion,
+          leaderboard
         }
       });
     } catch (error: any) {

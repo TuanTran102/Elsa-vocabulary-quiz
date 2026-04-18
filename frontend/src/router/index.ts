@@ -81,8 +81,8 @@ router.beforeEach(async (to, _from, next) => {
         userStore.reset()
         return next('/join')
       }
-      const data = await response.json()
-      if (data.status === 'finished') {
+      const { data } = await response.json()
+      if (data.status === 'COMPLETED') {
         userStore.reset()
         return next('/join')
       }

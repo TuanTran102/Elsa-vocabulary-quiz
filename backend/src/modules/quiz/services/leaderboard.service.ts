@@ -20,22 +20,31 @@ export class LeaderboardService {
    * @param pin   - The 6-digit game room PIN.
    * @param limit - Max number of entries to return (default 10).
    */
-  async getLeaderboard(pin: string, limit: number = 10): Promise<{ nickname: string; score: number }[]> {
+  async getLeaderboard(pin: string, limit: number = 10): Promise<{ nickname: string; score: number; rank: number }[]> {
     const topScores = await this.redisRepo.getTopScores(pin, limit);
     if (topScores.length === 0) {
       return [];
     }
 
     const enriched = await Promise.all(
-      topScores.map(async (ts) => {
+      topScores.map(async (ts, index) => {
         const nickname = await this.redisRepo.getNickname(pin, ts.userId);
         return {
           nickname: nickname ?? 'Unknown',
           score: ts.score,
+          rank: index + 1,
         };
       })
     );
 
     return enriched;
+  }
+
+  async getPlayerScore(pin: string, playerId: string): Promise<number> {
+    return this.redisRepo.getPlayerScore(pin, playerId);
+  }
+
+  async getPlayerRank(pin: string, playerId: string): Promise<number> {
+    return this.redisRepo.getPlayerRank(pin, playerId);
   }
 }

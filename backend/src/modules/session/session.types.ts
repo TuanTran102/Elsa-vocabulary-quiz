@@ -5,6 +5,7 @@ export enum SessionStatus {
 }
 
 export interface PlayerSession {
+  id: string;
   nickname: string;
   socketId: string;
   score: number;

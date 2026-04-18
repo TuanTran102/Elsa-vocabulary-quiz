@@ -13,6 +13,13 @@ export function useSocket() {
       autoConnect: false,
     })
 
+    socket.on('connect', () => {
+      const userStore = useUserStore()
+      if (userStore.pin && userStore.nickname && userStore.role === 'player') {
+        socket.emit('join_quiz', { pin: userStore.pin, nickname: userStore.nickname })
+      }
+    })
+
     // Global Listeners
     socket.on('player_joined', (data) => {
       const sessionStore = useSessionStore()
@@ -63,9 +70,16 @@ export function useSocket() {
       }
     })
 
+    socket.on('quiz_completed', () => {
+      const userStore = useUserStore()
+      if (userStore.role !== 'master' && userStore.pin) {
+        router.push(`/results/${userStore.pin}`)
+      }
+    })
+
     socket.on('host_disconnected', () => {
-      // Could be handled in component, but let's notify
       console.warn('Host disconnected')
+      // Optional: global redirect or toast
     })
   }
 

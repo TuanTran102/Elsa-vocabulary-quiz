@@ -147,6 +147,24 @@ export class SessionService {
       'EX',
       this.SESSION_TTL
     );
+
+    // Create a PlayerResult in the database to link answers
+    await this.prisma.playerResult.create({
+      data: {
+        id: player.id,
+        gameRoomId: session.id,
+        nickname: player.nickname,
+        finalScore: 0
+      }
+    });
+
+    // Track nickname in a separate key for faster lookup in leaderboards
+    await this.redis.set(
+      `session:${pin}:player:${player.id}:nickname`,
+      player.nickname,
+      'EX',
+      this.SESSION_TTL
+    );
   }
 
   async removePlayer(pin: string, socketId: string) {

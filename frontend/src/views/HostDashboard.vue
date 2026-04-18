@@ -133,8 +133,8 @@ onMounted(() => {
     // Normalize options: backend sends string array, charts need { text } objects
     const rawOptions: any[] = data.options || data.question?.options || []
     const normalizedOptions = rawOptions.map((opt: any, index: number) => {
-      if (typeof opt === 'string') return { id: `opt_${index}`, text: opt }
-      return { id: opt.id || `opt_${index}`, text: opt.text || opt.content || String(opt) }
+      if (typeof opt === 'string') return { id: opt, text: opt }
+      return { id: opt.id || String(opt), text: opt.text || opt.content || String(opt) }
     })
     currentQuestion.value = {
       text: data.text || data.question?.text,
@@ -156,7 +156,7 @@ onMounted(() => {
   })
 
   socket.on('leaderboard_update', (data) => {
-    leaderboard.value = data
+    leaderboard.value = data.leaderboard || data
   })
 
   socket.on('quiz_completed', (data: any) => {
@@ -281,28 +281,6 @@ onUnmounted(() => {
     <div v-if="currentPhase === 'finished'" class="max-w-4xl mx-auto text-center py-8">
       <h1 class="text-5xl font-black mb-12 text-primary">Final Results</h1>
       
-      <!-- Podium -->
-      <div class="flex justify-center items-end gap-4 mb-12 h-64">
-        <div v-if="leaderboard[1]" class="flex flex-col items-center">
-          <div class="bg-blue-600/20 p-4 rounded-t-lg w-32 border-x border-t border-blue-600/30 h-32 flex flex-col justify-end pb-4">
-            <span class="text-2xl font-bold">2nd</span>
-            <span class="truncate w-full px-2">{{ leaderboard[1].nickname }}</span>
-          </div>
-        </div>
-        <div v-if="leaderboard[0]" class="flex flex-col items-center">
-            <i class="pi pi-crown text-yield-500 text-4xl mb-2 text-yellow-500"></i>
-          <div class="bg-yellow-600/30 p-4 rounded-t-lg w-40 border-x border-t border-yellow-600/40 h-48 flex flex-col justify-end pb-6">
-            <span class="text-3xl font-black">1st</span>
-            <span class="truncate w-full px-2">{{ leaderboard[0].nickname }}</span>
-          </div>
-        </div>
-        <div v-if="leaderboard[2]" class="flex flex-col items-center">
-          <div class="bg-orange-600/20 p-4 rounded-t-lg w-32 border-x border-t border-orange-600/30 h-24 flex flex-col justify-end pb-3">
-            <span class="text-xl font-bold">3rd</span>
-            <span class="truncate w-full px-2">{{ leaderboard[2].nickname }}</span>
-          </div>
-        </div>
-      </div>
 
       <Card class="mb-8">
         <template #content>

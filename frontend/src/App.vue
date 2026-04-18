@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
+import Toast from 'primevue/toast'
 </script>
 
 <template>
   <div class="app-root flex flex-col min-h-screen">
+    <Toast />
     <header class="app-header glass-effect sticky top-0 z-50 p-4 flex items-center justify-between">
       <div class="logo-container flex items-center gap-2">
         <div class="logo-icon">✨</div>
