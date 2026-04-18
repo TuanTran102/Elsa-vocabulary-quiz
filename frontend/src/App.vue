@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router'
+import { RouterView, RouterLink } from 'vue-router'
 import Toast from 'primevue/toast'
 </script>
 
@@ -7,12 +7,12 @@ import Toast from 'primevue/toast'
   <div class="app-root flex flex-col min-h-screen">
     <Toast />
     <header class="app-header glass-effect sticky top-0 z-50 p-4 flex items-center justify-between">
-      <div class="logo-container flex items-center gap-2">
+      <RouterLink to="/" class="logo-link">
         <div class="logo-icon">✨</div>
-        <h1 class="text-2xl font-bold bg-gradient-to-r from-indigo-200 to-purple-200 bg-clip-text text-transparent">
+        <h1 class="logo-text">
           ELSA Quiz
         </h1>
-      </div>
+      </RouterLink>
     </header>
 
     <main class="flex-grow">
@@ -55,9 +55,37 @@ h1, h2, h3, h4, h5, h6 {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.logo-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+.logo-link:hover {
+  opacity: 0.8;
+}
+
 .logo-icon {
   font-size: 1.5rem;
   filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.5));
+  transition: transform 0.2s ease;
+}
+
+.logo-link:hover .logo-icon {
+  transform: scale(1.1);
+}
+
+.logo-text {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 700;
+  margin: 0;
+  background: linear-gradient(to right, #c7d2fe, #e9d5ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 /* Tailwind-like utilities if needed, or vanilla equivalent */

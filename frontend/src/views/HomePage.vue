@@ -16,7 +16,7 @@
         </div>
         <h1 class="text-6xl md:text-8xl font-black tracking-normal leading-none uppercase pb-2 flex flex-col">
           <span>Elsa</span>
-          <span class="text-indigo-300" style="margin-top: 15px;">Quest</span>
+          <span class="text-indigo-300" style="margin-top: 15px;">Quiz</span>
         </h1>
         <p class="text-lg md:text-xl text-indigo-100/80 max-w-md mx-auto leading-relaxed px-4">
           Master new words with friends in real-time. Join a room or host your own challenge.
