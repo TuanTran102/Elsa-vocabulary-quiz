@@ -30,7 +30,8 @@ const fetchQuizzes = async () => {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
     const response = await fetch(`${apiUrl}/v1/quizzes`)
     if (!response.ok) throw new Error('Failed to fetch quizzes')
-    quizzes.value = await response.json()
+    const result = await response.json()
+    quizzes.value = Array.isArray(result.data) ? result.data : []
   } catch (err: any) {
     error.value = err.message || 'An error occurred'
   } finally {
@@ -46,22 +47,24 @@ const createSession = async (quizId: string) => {
     const response = await fetch(`${apiUrl}/v1/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quizId })
+      body: JSON.stringify({ quiz_id: quizId })
     })
     
     if (!response.ok) throw new Error('Failed to create session')
     
-    const data = await response.json()
-    // data should contain { pin, gameRoomId, masterToken, session: { ... } }
+    const responseData = await response.json()
+    const data = responseData.data
+    // data contains { pin, game_room_id, quiz_title, master_token }
     
+    sessionStore.setMasterToken(data.master_token)
+
     sessionStore.setSession({
       pin: data.pin,
-      gameRoomId: data.gameRoomId,
-      quizTitle: data.session.quiz.title,
-      status: data.session.status,
+      gameRoomId: data.game_room_id,
+      quizTitle: data.quiz_title,
+      status: 'WAITING',
       players: []
     })
-    sessionStore.setMasterToken(data.masterToken)
     
     router.push(`/host/${data.pin}`)
   } catch (err: any) {

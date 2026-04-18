@@ -26,17 +26,16 @@ import { RouterView } from 'vue-router'
 <style>
 /* Reset and Global Styles */
 * {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
 }
 
-body {
+html, body {
   font-family: 'Inter', sans-serif;
   color: #333;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #0f172a; /* Slate 900 */
+  overflow-x: hidden;
 }
 
 h1, h2, h3, h4, h5, h6 {

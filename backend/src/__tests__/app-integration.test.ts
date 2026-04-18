@@ -62,7 +62,7 @@ describe('Quiz Integration Tests', () => {
       
       const testQuiz = response.body.data.find((q: any) => q.id === quizId);
       expect(testQuiz).toBeDefined();
-      expect(testQuiz.questions_count).toBe(1);
+      expect(testQuiz._count.questions).toBe(1);
     });
   });
 

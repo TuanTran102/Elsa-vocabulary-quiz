@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSessionStore } from '@/store/session'
+import { useUserStore } from '@/store/user'
 import { useSocket } from '@/composables/useSocket'
 import QrcodeVue from 'qrcode.vue'
 import { Bar } from 'vue-chartjs'
@@ -24,6 +25,7 @@ ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 const route = useRoute()
 const router = useRouter()
 const sessionStore = useSessionStore()
+const userStore = useUserStore()
 const socket = useSocket()
 const pin = route.params.pin as string
 
@@ -105,30 +107,44 @@ const exportResults = () => {
 
 // Socket Listeners
 onMounted(() => {
+  // Mark this client as master so global socket handlers skip redirection
+  userStore.setRole('master')
+  userStore.setPin(pin)
+
+  // Listen for connection before reclaiming host
+  socket.on('connect', () => {
+    if (sessionStore.masterToken) {
+      socket.emit('reclaim_host', { pin, masterToken: sessionStore.masterToken })
+    }
+  })
+  
   socket.connect()
   
-  // If we have a session in store, re-join as host
-  if (sessionStore.masterToken) {
+  // If socket is already connected (e.g. joined as player first)
+  if (socket.socket?.connected && sessionStore.masterToken) {
     socket.emit('reclaim_host', { pin, masterToken: sessionStore.masterToken })
   }
 
-  socket.on('player_joined', (player) => {
-    sessionStore.addPlayer(player)
-  })
-
-  socket.on('player_left', ({ playerId }) => {
-    sessionStore.removePlayer(playerId)
-  })
+  // player_joined and player_left are handled globally in useSocket.ts
+  // which syncs sessionStore.players automatically
 
   socket.on('question_started', (data) => {
     currentPhase.value = 'in_progress'
-    currentQuestion.value = data.question
-    timer.value = data.duration
-    totalQuestions.value = data.totalQuestions
-    questionIndex.value = data.questionIndex
+    // Normalize options: backend sends string array, charts need { text } objects
+    const rawOptions: any[] = data.options || data.question?.options || []
+    const normalizedOptions = rawOptions.map((opt: any, index: number) => {
+      if (typeof opt === 'string') return { id: `opt_${index}`, text: opt }
+      return { id: opt.id || `opt_${index}`, text: opt.text || opt.content || String(opt) }
+    })
+    currentQuestion.value = {
+      text: data.text || data.question?.text,
+      options: normalizedOptions
+    }
+    timer.value = data.time_limit || data.duration || 30
+    totalQuestions.value = data.total || data.totalQuestions || 0
+    questionIndex.value = (data.question_number || data.questionIndex || 1) - 1
     answerDistribution.value = {}
     
-    // Start local timer sync for UI
     const countdown = setInterval(() => {
       if (timer.value > 0) timer.value--
       else clearInterval(countdown)
@@ -145,7 +161,8 @@ onMounted(() => {
 
   socket.on('quiz_completed', (data: any) => {
     currentPhase.value = 'finished'
-    leaderboard.value = data.leaderboard
+    // Backend emits { final_leaderboard }
+    leaderboard.value = data.final_leaderboard || data.leaderboard || []
   })
 
   socket.on('error', (err) => {
@@ -154,8 +171,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  socket.off('player_joined')
-  socket.off('player_left')
   socket.off('question_started')
   socket.off('answer_distribution_update')
   socket.off('leaderboard_update')

@@ -1,10 +1,10 @@
 <template>
   <div class="join-container flex items-center justify-center min-h-screen p-4">
-    <div class="glass-card p-8 w-full max-w-md animate-fade-in">
-      <h2 class="text-3xl font-bold mb-6 text-white text-center">Join Quiz</h2>
+    <div class="glass-card p-8 w-full max-w-md animate-fade-in" style="padding: 20px;">
+      <h2 class="text-3xl font-bold text-white text-center" style="margin-bottom: 2rem;">Join Quiz</h2>
       
-      <div v-if="step === 'pin'" class="space-y-4">
-        <div class="flex flex-col gap-2">
+      <div v-if="step === 'pin'" style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
           <label class="text-indigo-100 font-medium">Room PIN</label>
           <InputText 
             v-model="pin" 
@@ -24,8 +24,8 @@
         />
       </div>
 
-      <div v-else class="space-y-4 animate-slide-up">
-        <div class="flex flex-col gap-2">
+      <div v-else class="animate-slide-up" style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
           <label class="text-indigo-100 font-medium">Your Nickname</label>
           <InputText 
             v-model="nickname" 
@@ -98,9 +98,10 @@ function joinRoom() {
   
   // Update store PIN early so navigation guard allows it
   userStore.setPin(pin.value)
+  userStore.setNickname(nickname.value)
   
   connect()
-  emit('join_room', { pin: pin.value, nickname: nickname.value })
+  emit('join_quiz', { pin: pin.value, nickname: nickname.value })
   
   // Server will respond with join_confirmed which updates store and routes to lobby
   // But we can proactively route if we want, or wait for event.

@@ -38,6 +38,8 @@ export class GameFlowService {
 
     this.io.of('/live-quiz').to(pin).emit('quiz_started', { total_questions: totalQuestions });
     
+    // Wait 2 seconds for players to navigate to the play page before sending first question
+    await new Promise(resolve => setTimeout(resolve, 2000));
     await this.startQuestion(pin, 0);
   }
 

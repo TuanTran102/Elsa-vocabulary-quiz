@@ -20,6 +20,7 @@ export interface GameSession {
   playerCount: number;
   masterSocketId?: string;
   players?: PlayerSession[];
+  masterToken?: string;
   currentQuestionIndex?: number;
   totalQuestions?: number;
   questionStartedAt?: number;

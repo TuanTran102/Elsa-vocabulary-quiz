@@ -53,6 +53,26 @@ export class QuizGateway {
       }
     });
 
+    socket.on('reclaim_host', async (data: { pin: string, masterToken: string }) => {
+      const { pin, masterToken } = data;
+      try {
+        const session = await this.sessionService.getSession(pin);
+        if (session && session.masterToken === masterToken) {
+          await this.sessionService.setMasterSocket(pin, socket.id);
+          socket.data.role = 'master';
+          socket.data.pin = pin;
+          socket.data.gameRoomId = session.id;
+          await socket.join(pin);
+          // Don't need to emit anything unless the frontend expects it,
+          // but we can just be silent or emit 'host_reclaimed'
+        } else {
+          socket.emit('error', { message: 'Invalid master token or session' });
+        }
+      } catch (error: any) {
+        socket.emit('error', { message: error.message });
+      }
+    });
+
     // Player Flow
     socket.on('join_quiz', async (data: { pin: string, nickname: string }) => {
       const { pin, nickname } = data;
@@ -85,6 +105,7 @@ export class QuizGateway {
 
         socket.emit('join_confirmed', { playerId, nickname, players });
         socket.to(pin).emit('player_joined', { 
+          id: playerId,
           nickname, 
           player_count: updatedSession?.playerCount || 0,
           players 
@@ -99,6 +120,18 @@ export class QuizGateway {
       if (await MasterGuard.isMaster(socket, this.sessionService)) {
         try {
           await this.gameFlowService.startQuiz(socket.data.pin);
+        } catch (error: any) {
+          socket.emit('error', { message: error.message });
+        }
+      } else {
+        socket.emit('error', { message: 'Unauthorized' });
+      }
+    });
+
+    socket.on('end_quiz', async () => {
+      if (await MasterGuard.isMaster(socket, this.sessionService)) {
+        try {
+          await this.gameFlowService.endQuiz(socket.data.pin);
         } catch (error: any) {
           socket.emit('error', { message: error.message });
         }

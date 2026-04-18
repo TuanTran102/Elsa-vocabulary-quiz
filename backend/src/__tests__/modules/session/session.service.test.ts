@@ -44,7 +44,8 @@ describe('SessionService', () => {
       expect(result).toEqual({
         pin: expect.any(String),
         gameRoomId: 'room-1',
-        quizTitle: 'Test Quiz'
+        quizTitle: 'Test Quiz',
+        masterToken: expect.any(String)
       });
       expect(result.pin).toHaveLength(6);
       

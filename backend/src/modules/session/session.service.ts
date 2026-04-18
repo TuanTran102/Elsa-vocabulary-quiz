@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import type { Redis } from 'ioredis';
+import crypto from 'crypto';
 import { SessionStatus, type GameSession, type PlayerSession } from './session.types.js';
 
 export class SessionService {
@@ -21,6 +22,7 @@ export class SessionService {
     }
 
     const pin = await this.generateUniquePin();
+    const masterToken = crypto.randomUUID();
 
     const gameRoom = await this.prisma.gameRoom.create({
       data: {
@@ -37,7 +39,8 @@ export class SessionService {
       quizTitle: quiz.title,
       status: SessionStatus.WAITING,
       playerCount: 0,
-      players: []
+      players: [],
+      masterToken
     };
 
     await this.redis.set(
@@ -50,7 +53,8 @@ export class SessionService {
     return {
       pin,
       gameRoomId: gameRoom.id,
-      quizTitle: quiz.title
+      quizTitle: quiz.title,
+      masterToken
     };
   }
 

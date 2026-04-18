@@ -69,8 +69,8 @@ const submitAnswer = (optionId: string) => {
   hasAnswered.value = true
   
   socket.emit('submit_answer', {
-    pin,
-    answerId: optionId
+    question_id: question.value?.id,
+    answer: optionId
   })
 }
 
@@ -88,23 +88,38 @@ onMounted(() => {
   syncSession()
 
   socket.on('question_started', (data: any) => {
-    question.value = data.question
-    questionIndex.value = data.questionIndex
-    totalQuestions.value = data.totalQuestions
-    timeRemaining.value = data.duration
+    // Backend options is a JSON array of strings: ["Paris", "London", ...]
+    // Normalize to { id, text } objects that the template expects
+    const rawOptions: any[] = data.options || data.question?.options || []
+    const normalizedOptions = rawOptions.map((opt: any, index: number) => {
+      if (typeof opt === 'string') {
+        return { id: `opt_${index}`, text: opt }
+      }
+      return { id: opt.id || `opt_${index}`, text: opt.text || opt.content || String(opt) }
+    })
+
+    question.value = {
+      id: data.question_id || data.id,
+      text: data.text || data.question?.text,
+      options: normalizedOptions
+    }
+    questionIndex.value = (data.question_number || data.questionIndex || 1) - 1
+    totalQuestions.value = data.total || data.totalQuestions || 0
+    timeRemaining.value = data.time_limit || data.duration || 30
     selectedAnswerId.value = null
     hasAnswered.value = false
     showDistribution.value = false
     distribution.value = {}
     correctAnswerId.value = null
-    startTimer(data.duration)
+    startTimer(data.time_limit || data.duration || 30)
   })
 
   socket.on('question_ended', (data: any) => {
     clearInterval(timerInterval)
     timeRemaining.value = 0
-    correctAnswerId.value = data.correctAnswerId
-    distribution.value = data.distribution
+    // Map backend fields: { correct_answer, answer_distribution }
+    correctAnswerId.value = data.correct_answer || data.correctAnswerId
+    distribution.value = data.answer_distribution || data.distribution || {}
     showDistribution.value = true
   })
 

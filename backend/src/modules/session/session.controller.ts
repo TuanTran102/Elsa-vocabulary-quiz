@@ -18,7 +18,8 @@ export class SessionController {
           session_id: result.gameRoomId,
           game_room_id: result.gameRoomId,
           pin: result.pin,
-          quiz_title: result.quizTitle
+          quiz_title: result.quizTitle,
+          master_token: result.masterToken
         }
       });
     } catch (error: any) {

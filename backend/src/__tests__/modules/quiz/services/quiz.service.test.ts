@@ -21,7 +21,7 @@ describe('QuizService', () => {
       const result = await service.getQuizzes();
 
       expect(result).toEqual([
-        { id: '1', title: 'Quiz 1', questions_count: 5 }
+        { id: '1', title: 'Quiz 1', _count: { questions: 5 } }
       ]);
       expect(repositoryMock.findAll).toHaveBeenCalled();
     });

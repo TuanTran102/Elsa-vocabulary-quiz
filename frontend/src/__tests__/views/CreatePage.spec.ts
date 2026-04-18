@@ -32,7 +32,7 @@ describe('CreatePage.vue', () => {
   it('renders loading state initially', async () => {
     ;(fetch as any).mockResolvedValueOnce({
       ok: true,
-      json: () => new Promise(resolve => setTimeout(() => resolve([]), 10))
+      json: () => new Promise(resolve => setTimeout(() => resolve({ data: [] }), 10))
     })
 
     const wrapper = mount(CreatePage, {
@@ -48,7 +48,7 @@ describe('CreatePage.vue', () => {
   it('renders quiz list after fetching', async () => {
     ;(fetch as any).mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve(mockQuizzes)
+      json: () => Promise.resolve({ data: mockQuizzes })
     })
 
     const wrapper = mount(CreatePage, {
@@ -85,17 +85,15 @@ describe('CreatePage.vue', () => {
     ;(fetch as any)
       .mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve(mockQuizzes)
+        json: () => Promise.resolve({ data: mockQuizzes })
       })
       .mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
-          pin: '123456',
-          gameRoomId: 'room1',
-          masterToken: 'm-token',
-          session: {
-            status: 'waiting',
-            quiz: { title: 'Quiz 1' }
+          data: {
+            pin: '123456',
+            game_room_id: 'room1',
+            quiz_title: 'Quiz 1'
           }
         })
       })
@@ -114,7 +112,7 @@ describe('CreatePage.vue', () => {
 
     expect(fetch).toHaveBeenCalledWith('http://test-api/v1/sessions', expect.objectContaining({
       method: 'POST',
-      body: JSON.stringify({ quizId: '1' })
+      body: JSON.stringify({ quiz_id: '1' })
     }))
 
     await flushPromises()
