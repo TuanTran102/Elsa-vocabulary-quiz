@@ -2,12 +2,16 @@ import { Server, Socket } from 'socket.io';
 import { socketMiddleware } from './socket.middleware.js';
 import { QuizRepository } from '../quiz/repositories/quiz.repository.js';
 import { QuizAnswerService } from '../quiz/services/quiz-answer.service.js';
+import { LeaderboardService } from '../quiz/services/leaderboard.service.js';
 
 export class QuizGateway {
+  private leaderboardThrottles = new Map<string, boolean>();
+
   constructor(
     private io: Server,
     private quizRepository: QuizRepository,
-    private quizAnswerService: QuizAnswerService
+    private quizAnswerService: QuizAnswerService,
+    private leaderboardService: LeaderboardService
   ) {
     const liveQuizNamespace = this.io.of('/live-quiz');
     
@@ -59,6 +63,10 @@ export class QuizGateway {
           is_correct: result.isCorrect,
           points_awarded: result.pointsAwarded
         });
+
+        if (result.pointsAwarded > 0) {
+          this.requestLeaderboardUpdate(quiz_id);
+        }
       } catch (error: any) {
         socket.emit('answer_status', {
           success: false,
@@ -70,5 +78,25 @@ export class QuizGateway {
     socket.on('disconnect', () => {
       // Logic for participant leaving can be added here
     });
+  }
+
+  private requestLeaderboardUpdate(quizId: string) {
+    if (this.leaderboardThrottles.get(quizId)) {
+      return;
+    }
+
+    this.leaderboardThrottles.set(quizId, true);
+
+    setTimeout(async () => {
+      try {
+        const leaderboard = await this.leaderboardService.getLeaderboard(quizId);
+        const roomName = `quiz_${quizId}`;
+        this.io.of('/live-quiz').to(roomName).emit('leaderboard_update', leaderboard);
+      } catch (error) {
+        console.error('Error broadcasting leaderboard:', error);
+      } finally {
+        this.leaderboardThrottles.set(quizId, false);
+      }
+    }, 1000);
   }
 }

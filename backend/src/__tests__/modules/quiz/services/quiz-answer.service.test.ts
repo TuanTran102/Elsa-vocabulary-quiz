@@ -3,6 +3,7 @@ import { QuizAnswerService } from '../../../../modules/quiz/services/quiz-answer
 import { QuizRedisRepository } from '../../../../modules/quiz/repositories/quiz-redis.repository.js';
 import { ScoringService } from '../../../../modules/quiz/services/scoring.service.js';
 import { QuizRepository } from '../../../../modules/quiz/repositories/quiz.repository.js';
+import { LeaderboardService } from '../../../../modules/quiz/services/leaderboard.service.js';
 import { mockDeep, mockReset } from 'jest-mock-extended';
 import { PrismaClient } from '@prisma/client';
 
@@ -20,6 +21,7 @@ describe('QuizAnswerService', () => {
   const mockScoringService = mockDeep<ScoringService>();
   const mockQuizRepo = mockDeep<QuizRepository>();
   const mockPrisma = mockDeep<PrismaClient>();
+  const mockLeaderboardService = mockDeep<LeaderboardService>();
 
   let quizAnswerService: QuizAnswerService;
 
@@ -28,12 +30,14 @@ describe('QuizAnswerService', () => {
     mockReset(mockScoringService);
     mockReset(mockQuizRepo);
     mockReset(mockPrisma);
+    mockReset(mockLeaderboardService);
 
     quizAnswerService = new QuizAnswerService(
       mockRedisRepo,
       mockScoringService,
       mockQuizRepo,
-      mockPrisma
+      mockPrisma,
+      mockLeaderboardService
     );
   });
 
@@ -122,6 +126,8 @@ describe('QuizAnswerService', () => {
           },
         },
       });
+
+      expect(mockLeaderboardService.addPoints).toHaveBeenCalledWith(quizId, userId, 500);
     });
 
     it('should handle incorrect answers with 0 points', async () => {

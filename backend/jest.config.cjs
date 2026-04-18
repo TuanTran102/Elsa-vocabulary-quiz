@@ -15,6 +15,8 @@ module.exports = {
   },
   testPathIgnorePatterns: [
     "/node_modules/",
+    "/dist/",
+    "\\.d\\.ts$",
     "/\\._"
   ],
   watchPathIgnorePatterns: [

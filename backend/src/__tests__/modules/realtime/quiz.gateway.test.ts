@@ -24,8 +24,12 @@ describe('QuizGateway', () => {
     quizAnswerServiceMock = {
       submitAnswer: jest.fn()
     };
+
+    const leaderboardServiceMock = {
+      getLeaderboard: jest.fn()
+    };
  
-    new QuizGateway(io, quizRepositoryMock, quizAnswerServiceMock as any);
+    new QuizGateway(io, quizRepositoryMock, quizAnswerServiceMock as any, leaderboardServiceMock as any);
 
     server.listen(() => {
       port = (server.address() as any).port;

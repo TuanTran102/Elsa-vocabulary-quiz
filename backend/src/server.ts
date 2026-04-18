@@ -6,6 +6,7 @@ import { QuizRepository } from './modules/quiz/repositories/quiz.repository.js';
 import { QuizRedisRepository } from './modules/quiz/repositories/quiz-redis.repository.js';
 import { ScoringService } from './modules/quiz/services/scoring.service.js';
 import { QuizAnswerService } from './modules/quiz/services/quiz-answer.service.js';
+import { LeaderboardService } from './modules/quiz/services/leaderboard.service.js';
 import prisma from './config/db.js';
 import dotenv from 'dotenv';
  
@@ -21,15 +22,17 @@ const io = SocketServer.init(server);
 const quizRepository = new QuizRepository(prisma);
 const quizRedisRepository = new QuizRedisRepository();
 const scoringService = new ScoringService();
+const leaderboardService = new LeaderboardService(prisma, quizRedisRepository);
 const quizAnswerService = new QuizAnswerService(
   quizRedisRepository,
   scoringService,
   quizRepository,
-  prisma
+  prisma,
+  leaderboardService
 );
 
 // Initialize Gateways
-new QuizGateway(io, quizRepository, quizAnswerService);
+new QuizGateway(io, quizRepository, quizAnswerService, leaderboardService);
 
 if (process.env.NODE_ENV !== 'test') {
   server.listen(port, () => {
