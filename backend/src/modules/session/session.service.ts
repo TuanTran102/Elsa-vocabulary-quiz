@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import type { Redis } from 'ioredis';
-import { SessionStatus, type GameSession } from './session.types.js';
+import { SessionStatus, type GameSession, type PlayerSession } from './session.types.js';
 
 export class SessionService {
   private readonly SESSION_TTL = 7200; // 2 hours
@@ -36,7 +36,8 @@ export class SessionService {
       quizId,
       quizTitle: quiz.title,
       status: SessionStatus.WAITING,
-      playerCount: 0
+      playerCount: 0,
+      players: []
     };
 
     await this.redis.set(
@@ -86,7 +87,8 @@ export class SessionService {
       quizId: gameRoom.quizId,
       quizTitle: gameRoom.quiz.title,
       status: gameRoom.status as SessionStatus,
-      playerCount: gameRoom._count.results
+      playerCount: gameRoom._count.results,
+      players: []
     };
 
     // Re-populate cache
@@ -119,6 +121,51 @@ export class SessionService {
     });
 
     session.status = status;
+    await this.redis.set(
+      `session:${pin}`,
+      JSON.stringify(session),
+      'EX',
+      this.SESSION_TTL
+    );
+  }
+
+  async addPlayer(pin: string, player: PlayerSession) {
+    const session = await this.getSession(pin);
+    if (!session) throw new Error('Session not found');
+
+    if (!session.players) session.players = [];
+    session.players.push(player);
+    session.playerCount = session.players.length;
+
+    await this.redis.set(
+      `session:${pin}`,
+      JSON.stringify(session),
+      'EX',
+      this.SESSION_TTL
+    );
+  }
+
+  async removePlayer(pin: string, socketId: string) {
+    const session = await this.getSession(pin);
+    if (!session || !session.players) return;
+
+    session.players = session.players.filter(p => p.socketId !== socketId);
+    session.playerCount = session.players.length;
+
+    await this.redis.set(
+      `session:${pin}`,
+      JSON.stringify(session),
+      'EX',
+      this.SESSION_TTL
+    );
+  }
+
+  async setMasterSocket(pin: string, socketId: string) {
+    const session = await this.getSession(pin);
+    if (!session) throw new Error('Session not found');
+
+    session.masterSocketId = socketId;
+
     await this.redis.set(
       `session:${pin}`,
       JSON.stringify(session),

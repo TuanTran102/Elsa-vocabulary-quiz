@@ -25,11 +25,10 @@ describe('socketMiddleware', () => {
     expect(next).toHaveBeenCalledWith();
   });
 
-  it('should call next with error if authorization header is missing', () => {
+  it('should call next without error if authorization header is missing', () => {
     socketMiddleware(mockSocket as Socket, next);
     
-    expect(next).toHaveBeenCalledWith(expect.any(Error));
-    // @ts-ignore
-    expect(next.mock.calls[0][0].message).toBe('Authentication error');
+    expect(next).toHaveBeenCalledWith();
+    expect(mockSocket.data.user_id).toBeUndefined();
   });
 });

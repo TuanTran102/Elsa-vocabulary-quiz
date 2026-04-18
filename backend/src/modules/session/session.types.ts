@@ -18,4 +18,6 @@ export interface GameSession {
   quizTitle: string;
   status: SessionStatus;
   playerCount: number;
+  masterSocketId?: string;
+  players?: PlayerSession[];
 }

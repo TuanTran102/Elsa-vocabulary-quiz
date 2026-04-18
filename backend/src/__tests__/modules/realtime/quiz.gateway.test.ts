@@ -2,8 +2,10 @@ import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { io as Client, Socket as ClientSocket } from 'socket.io-client';
-import { QuizGateway } from '../../../modules/realtime/quiz.gateway.js';
+import { QuizGateway } from '../../../modules/realtime/gateways/quiz.gateway.js';
 import { disconnectRedis } from '../../../config/redis.js';
+
+import { SessionStatus } from '../../../modules/session/session.types.js';
 
 describe('QuizGateway', () => {
   let io: Server;
@@ -12,6 +14,7 @@ describe('QuizGateway', () => {
   let clientSocket: ClientSocket;
   let quizRepositoryMock: any;
   let quizAnswerServiceMock: any;
+  let sessionServiceMock: any;
  
   beforeEach((done) => {
     server = createServer();
@@ -28,8 +31,16 @@ describe('QuizGateway', () => {
     const leaderboardServiceMock = {
       getLeaderboard: jest.fn()
     };
- 
-    new QuizGateway(io, quizRepositoryMock, quizAnswerServiceMock as any, leaderboardServiceMock as any);
+
+    sessionServiceMock = {
+      createSession: jest.fn(),
+      setMasterSocket: jest.fn(),
+      getSession: jest.fn(),
+      addPlayer: jest.fn(),
+      removePlayer: jest.fn()
+    };
+  
+    new QuizGateway(io, quizRepositoryMock, quizAnswerServiceMock as any, leaderboardServiceMock as any, sessionServiceMock as any);
 
     server.listen(() => {
       port = (server.address() as any).port;
@@ -58,40 +69,35 @@ describe('QuizGateway', () => {
     await disconnectRedis();
   });
 
-  it('should join quiz room and emit quiz_joined', (done) => {
+  it('should create a quiz session (master flow)', (done) => {
     const quizId = 'quiz_123';
-    quizRepositoryMock.findById.mockResolvedValue({ id: quizId });
+    const mockSession = { pin: '123456', gameRoomId: 'room_1', quizTitle: 'Test Quiz' };
+    sessionServiceMock.createSession.mockResolvedValue(mockSession);
+    sessionServiceMock.setMasterSocket.mockResolvedValue(undefined);
 
-    clientSocket.on('quiz_joined', (data) => {
-      expect(data.quiz_id).toBe(quizId);
+    clientSocket.on('session_created', (data) => {
+      expect(data.pin).toBe('123456');
+      expect(data.quiz_title).toBe('Test Quiz');
       done();
     });
 
-    clientSocket.emit('join_quiz', { quiz_id: quizId });
+    clientSocket.emit('create_quiz_session', { quiz_id: quizId });
   });
 
-  it('should broadcast participant_joined when someone joins', (done) => {
-    const quizId = 'quiz_123';
-    quizRepositoryMock.findById.mockResolvedValue({ id: quizId });
+  it('should join a quiz using PIN (player flow)', (done) => {
+    const pin = '123456';
+    const nickname = 'Player 1';
+    const mockSession = { pin, status: SessionStatus.WAITING, players: [] };
+    sessionServiceMock.getSession.mockResolvedValue(mockSession);
+    sessionServiceMock.addPlayer.mockResolvedValue(undefined);
 
-    const clientSocket2 = Client(`http://localhost:${port}/live-quiz`, {
-      extraHeaders: {
-        authorization: 'user_456'
-      }
+    clientSocket.on('join_confirmed', (data) => {
+      expect(data.nickname).toBe(nickname);
+      expect(data.playerId).toBeDefined();
+      done();
     });
 
-    clientSocket.on('participant_joined', (data) => {
-      if (data.total_participants === 2) {
-        clientSocket2.close();
-        done();
-      }
-    });
-
-    clientSocket.on('quiz_joined', () => {
-      clientSocket2.emit('join_quiz', { quiz_id: quizId });
-    });
-
-    clientSocket.emit('join_quiz', { quiz_id: quizId });
+    clientSocket.emit('join_quiz', { pin, nickname });
   });
 
   it('should handle submit_answer and emit answer_status', (done) => {
@@ -99,8 +105,15 @@ describe('QuizGateway', () => {
     const questionId = 'question_1';
     const answer = 'Paris';
     const mockResult = { isCorrect: true, pointsAwarded: 500 };
+    const mockSession = { pin: '123456', gameRoomId: 'room_1', quizTitle: 'Test Quiz', quizId };
 
+    sessionServiceMock.createSession.mockResolvedValue(mockSession);
+    sessionServiceMock.getSession.mockResolvedValue(mockSession);
     quizAnswerServiceMock.submitAnswer.mockResolvedValue(mockResult);
+
+    clientSocket.on('session_created', () => {
+      clientSocket.emit('submit_answer', { question_id: questionId, answer });
+    });
 
     clientSocket.on('answer_status', (data) => {
       expect(data.success).toBe(true);
@@ -109,6 +122,19 @@ describe('QuizGateway', () => {
       done();
     });
 
-    clientSocket.emit('submit_answer', { quiz_id: quizId, question_id: questionId, answer });
+    // We join as master for simplicity as that sets pin and playerId is not needed for master?
+    // Wait, master doesn't have playerId in the current implementation of join_quiz.
+    // Actually, submit_answer checks for playerId.
+    // Let's join as player.
+    const pin = '123456';
+    const nickname = 'Player 1';
+    sessionServiceMock.getSession.mockResolvedValue({ pin, status: SessionStatus.WAITING, quizId });
+    sessionServiceMock.addPlayer.mockResolvedValue(undefined);
+
+    clientSocket.on('join_confirmed', () => {
+      clientSocket.emit('submit_answer', { question_id: questionId, answer });
+    });
+
+    clientSocket.emit('join_quiz', { pin, nickname });
   });
 });

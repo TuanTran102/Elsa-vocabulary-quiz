@@ -1,9 +1,11 @@
-import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach, afterEach, afterAll } from '@jest/globals';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { io as Client, Socket as ClientSocket } from 'socket.io-client';
-import { QuizGateway } from '../../../modules/realtime/quiz.gateway.js';
+import { QuizGateway } from '../../../modules/realtime/gateways/quiz.gateway.js';
 import { disconnectRedis } from '../../../config/redis.js';
+
+import { SessionStatus } from '../../../modules/session/session.types.js';
 
 describe('Leaderboard Integration', () => {
   let io: Server;
@@ -14,6 +16,7 @@ describe('Leaderboard Integration', () => {
   let quizRepositoryMock: any;
   let quizAnswerServiceMock: any;
   let leaderboardServiceMock: any;
+  let sessionServiceMock: any;
  
   beforeEach((done) => {
     server = createServer();
@@ -31,8 +34,16 @@ describe('Leaderboard Integration', () => {
     leaderboardServiceMock = {
       getLeaderboard: jest.fn()
     };
+
+    sessionServiceMock = {
+      createSession: jest.fn(),
+      setMasterSocket: jest.fn(),
+      getSession: jest.fn(),
+      addPlayer: jest.fn(),
+      removePlayer: jest.fn()
+    };
  
-    new QuizGateway(io, quizRepositoryMock, quizAnswerServiceMock as any, leaderboardServiceMock as any);
+    new QuizGateway(io, quizRepositoryMock, quizAnswerServiceMock as any, leaderboardServiceMock as any, sessionServiceMock as any);
 
     server.listen(() => {
       port = (server.address() as any).port;
@@ -69,12 +80,15 @@ describe('Leaderboard Integration', () => {
   });
 
   it('should broadcast leaderboard_update after throttled delay', (done) => {
+    const pin = '123456';
     const quizId = 'quiz_1';
     const mockLeaderboard = [
       { username: 'User 1', score: 500 },
       { username: 'User 2', score: 300 }
     ];
 
+    sessionServiceMock.getSession.mockResolvedValue({ pin, status: SessionStatus.WAITING, quizId });
+    sessionServiceMock.addPlayer.mockResolvedValue(undefined);
     leaderboardServiceMock.getLeaderboard.mockResolvedValue(mockLeaderboard);
     quizAnswerServiceMock.submitAnswer.mockResolvedValue({ isCorrect: true, pointsAwarded: 500 });
 
@@ -97,19 +111,22 @@ describe('Leaderboard Integration', () => {
     });
 
     // Join room first
-    clientSocket1.emit('join_quiz', { quiz_id: quizId });
-    clientSocket2.emit('join_quiz', { quiz_id: quizId });
-
-    // Wait a bit for joins to complete, then submit answer
-    setTimeout(() => {
-      clientSocket1.emit('submit_answer', { quiz_id: quizId, question_id: 'q1', answer: 'A' });
-    }, 100);
+    clientSocket1.on('join_confirmed', () => {
+        clientSocket1.emit('submit_answer', { question_id: 'q1', answer: 'A' });
+    });
+    
+    // We only need one to join and submit to trigger update for both
+    clientSocket1.emit('join_quiz', { pin, nickname: 'User 1' });
+    clientSocket2.emit('join_quiz', { pin, nickname: 'User 2' });
   }, 5000);
 
   it('should throttle multiple updates into one', (done) => {
+    const pin = '123456';
     const quizId = 'quiz_1';
     const mockLeaderboard = [{ username: 'User 1', score: 1000 }];
 
+    sessionServiceMock.getSession.mockResolvedValue({ pin, status: SessionStatus.WAITING, quizId });
+    sessionServiceMock.addPlayer.mockResolvedValue(undefined);
     leaderboardServiceMock.getLeaderboard.mockResolvedValue(mockLeaderboard);
     quizAnswerServiceMock.submitAnswer.mockResolvedValue({ isCorrect: true, pointsAwarded: 500 });
 
@@ -118,12 +135,10 @@ describe('Leaderboard Integration', () => {
       updateCount++;
     });
 
-    clientSocket1.emit('join_quiz', { quiz_id: quizId });
-
-    setTimeout(() => {
+    clientSocket1.on('join_confirmed', () => {
       // Multiple submissions
-      clientSocket1.emit('submit_answer', { quiz_id: quizId, question_id: 'q1', answer: 'A' });
-      clientSocket1.emit('submit_answer', { quiz_id: quizId, question_id: 'q2', answer: 'B' });
+      clientSocket1.emit('submit_answer', { question_id: 'q1', answer: 'A' });
+      clientSocket1.emit('submit_answer', { question_id: 'q2', answer: 'B' });
       
       // Wait for throttle (1s) + some buffer
       setTimeout(() => {
@@ -131,6 +146,8 @@ describe('Leaderboard Integration', () => {
         expect(leaderboardServiceMock.getLeaderboard).toHaveBeenCalledTimes(1);
         done();
       }, 1500);
-    }, 100);
+    });
+
+    clientSocket1.emit('join_quiz', { pin, nickname: 'User 1' });
   }, 5000);
 });

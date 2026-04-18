@@ -1,12 +1,14 @@
 import http from 'http';
 import app from './app.js';
 import { SocketServer } from './core/socket/socket.server.js';
-import { QuizGateway } from './modules/realtime/quiz.gateway.js';
+import { QuizGateway } from './modules/realtime/gateways/quiz.gateway.js';
 import { QuizRepository } from './modules/quiz/repositories/quiz.repository.js';
 import { QuizRedisRepository } from './modules/quiz/repositories/quiz-redis.repository.js';
 import { ScoringService } from './modules/quiz/services/scoring.service.js';
 import { QuizAnswerService } from './modules/quiz/services/quiz-answer.service.js';
 import { LeaderboardService } from './modules/quiz/services/leaderboard.service.js';
+import { SessionService } from './modules/session/session.service.js';
+import { pubClient } from './config/redis.js';
 import prisma from './config/db.js';
 import dotenv from 'dotenv';
  
@@ -23,6 +25,7 @@ const quizRepository = new QuizRepository(prisma);
 const quizRedisRepository = new QuizRedisRepository();
 const scoringService = new ScoringService();
 const leaderboardService = new LeaderboardService(quizRedisRepository);
+const sessionService = new SessionService(prisma, pubClient);
 const quizAnswerService = new QuizAnswerService(
   quizRedisRepository,
   scoringService,
@@ -32,7 +35,7 @@ const quizAnswerService = new QuizAnswerService(
 );
 
 // Initialize Gateways
-new QuizGateway(io, quizRepository, quizAnswerService, leaderboardService);
+new QuizGateway(io, quizRepository, quizAnswerService, leaderboardService, sessionService);
 
 if (process.env.NODE_ENV !== 'test') {
   server.listen(port, () => {

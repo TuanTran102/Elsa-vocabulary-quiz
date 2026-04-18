@@ -116,7 +116,8 @@ describe('SessionService', () => {
         quizId: 'quiz-1',
         quizTitle: 'Test Quiz',
         status: SessionStatus.WAITING,
-        playerCount: 5
+        playerCount: 5,
+        players: []
       });
       expect(redisMock.set).toHaveBeenCalled();
     });
@@ -166,6 +167,71 @@ describe('SessionService', () => {
       expect(redisMock.set).toHaveBeenCalledWith(
         'session:123456' as any,
         expect.stringContaining('"status":"IN_PROGRESS"') as any,
+        'EX' as any,
+        7200 as any
+      );
+    });
+  });
+
+  describe('addPlayer', () => {
+    it('should add player to session and update Redis', async () => {
+      const mockSession = { 
+        id: 'room-1', 
+        pin: '123456', 
+        status: SessionStatus.WAITING,
+        playerCount: 0,
+        players: []
+      };
+      redisMock.get.mockResolvedValue(JSON.stringify(mockSession));
+
+      const player = { nickname: 'Player 1', socketId: 'socket-1', score: 0, lastActive: Date.now() };
+      await service.addPlayer('123456', player);
+
+      expect(redisMock.set).toHaveBeenCalledWith(
+        'session:123456' as any,
+        expect.stringContaining('"playerCount":1') as any,
+        'EX' as any,
+        7200 as any
+      );
+    });
+  });
+
+  describe('removePlayer', () => {
+    it('should remove player from session and update Redis', async () => {
+       const mockSession = { 
+        id: 'room-1', 
+        pin: '123456', 
+        status: SessionStatus.WAITING,
+        playerCount: 1,
+        players: [{ nickname: 'Player 1', socketId: 'socket-1' }]
+      };
+      redisMock.get.mockResolvedValue(JSON.stringify(mockSession));
+
+      await service.removePlayer('123456', 'socket-1');
+
+      expect(redisMock.set).toHaveBeenCalledWith(
+        'session:123456' as any,
+        expect.stringContaining('"playerCount":0') as any,
+        'EX' as any,
+        7200 as any
+      );
+    });
+  });
+
+  describe('setMasterSocket', () => {
+    it('should set master socket id and update Redis', async () => {
+       const mockSession = { 
+        id: 'room-1', 
+        pin: '123456', 
+        status: SessionStatus.WAITING
+      };
+      redisMock.get.mockResolvedValue(JSON.stringify(mockSession));
+
+      await service.setMasterSocket('123456', 'master-socket-id');
+
+      expect(redisMock.set).toHaveBeenCalledWith(
+        'session:123456' as any,
+        expect.stringContaining('"masterSocketId":"master-socket-id"') as any,
         'EX' as any,
         7200 as any
       );
