@@ -6,10 +6,18 @@ export interface Quiz {
   description?: string;
 }
 
-export interface Question {
+export interface AnswerOption {
   id: string;
   text: string;
 }
+
+export interface Question {
+  id: string;
+  text: string;
+  options?: AnswerOption[];
+}
+
+export type QuizStatus = 'waiting' | 'in_progress' | 'completed';
 
 export interface LeaderboardEntry {
   userId: string;
@@ -21,6 +29,9 @@ export interface LeaderboardEntry {
 export const useQuizStore = defineStore('quiz', {
   state: () => ({
     currentQuiz: null as Quiz | null,
+    status: 'waiting' as QuizStatus,
+    currentQuestion: null as Question | null,
+    timeRemaining: 0,
     questions: [] as Question[],
     participantsCount: 0,
     leaderboard: [] as LeaderboardEntry[],
@@ -31,8 +42,17 @@ export const useQuizStore = defineStore('quiz', {
     setQuizzes(quizzes: Quiz[]) {
       this.availableQuizzes = quizzes;
     },
+    setStatus(status: QuizStatus) {
+      this.status = status;
+    },
     setCurrentQuiz(quiz: Quiz | null) {
       this.currentQuiz = quiz;
+    },
+    setCurrentQuestion(question: Question | null) {
+      this.currentQuestion = question;
+    },
+    setTimeRemaining(time: number) {
+      this.timeRemaining = time;
     },
     setQuestions(questions: Question[]) {
       this.questions = questions;
