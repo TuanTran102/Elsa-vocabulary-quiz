@@ -25,7 +25,13 @@ const router = createRouter({
     {
       path: '/play/:pin',
       name: 'play',
-      component: () => import('@/views/QuizRoom.vue'),
+      component: () => import('@/views/PlayPage.vue'),
+      meta: { requiresSession: true }
+    },
+    {
+      path: '/results/:pin',
+      name: 'results',
+      component: () => import('@/views/ResultsPage.vue'),
       meta: { requiresSession: true }
     },
     {
@@ -62,8 +68,8 @@ router.beforeEach(async (to, _from, next) => {
   if (to.meta.requiresSession) {
     const pin = to.params.pin as string
 
-    // 1. Check if store PIN matches route PIN
-    if (userStore.pin !== pin) {
+    // 1. Check if store PIN matches route PIN and nickname exists
+    if (userStore.pin !== pin || !userStore.nickname) {
       return next('/join')
     }
 

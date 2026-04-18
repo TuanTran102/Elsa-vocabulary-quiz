@@ -8,6 +8,8 @@ export const useUserStore = defineStore('user', () => {
   const role = ref<UserRole>(null)
   const playerId = ref('')
   const pin = ref('')
+  const score = ref(0)
+  const rank = ref(0)
 
   function setNickname(val: string) {
     nickname.value = val
@@ -25,11 +27,21 @@ export const useUserStore = defineStore('user', () => {
     pin.value = val
   }
 
+  function setScore(val: number) {
+    score.value = val
+  }
+
+  function setRank(val: number) {
+    rank.value = val
+  }
+
   function reset() {
     nickname.value = ''
     role.value = null
     playerId.value = ''
     pin.value = ''
+    score.value = 0
+    rank.value = 0
   }
 
   return {
@@ -37,10 +49,14 @@ export const useUserStore = defineStore('user', () => {
     role,
     playerId,
     pin,
+    score,
+    rank,
     setNickname,
     setRole,
     setPlayerId,
     setPin,
+    setScore,
+    setRank,
     reset
   }
 })

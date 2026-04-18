@@ -18,7 +18,6 @@ import Card from 'primevue/card'
 import Button from 'primevue/button'
 import Badge from 'primevue/badge'
 import Dialog from 'primevue/dialog'
-import Divider from 'primevue/divider'
 
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 
@@ -144,7 +143,7 @@ onMounted(() => {
     leaderboard.value = data
   })
 
-  socket.on('quiz_completed', (data) => {
+  socket.on('quiz_completed', (data: any) => {
     currentPhase.value = 'finished'
     leaderboard.value = data.leaderboard
   })

@@ -24,11 +24,19 @@ export class QuizRepository {
             id: true,
             content: true,
             options: true,
-            correctAnswer: true,
             points: true,
             timeLimitSeconds: true
           }
         }
+      }
+    });
+  }
+
+  async findByIdWithAnswers(id: string) {
+    return this.prisma.quiz.findUnique({
+      where: { id },
+      include: {
+        questions: true
       }
     });
   }
