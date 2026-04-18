@@ -1,47 +1,52 @@
 # Database Design: Real-Time Quiz Feature
 
-The persistent storage layer uses PostgreSQL to store structured data ensuring ACID compliance for users, quizzes, and historical answers. Redis is utilized alongside it to manage the volatile real-time state of the leaderboards.
+The persistent storage layer uses PostgreSQL to store structured data ensuring ACID compliance for quizzes, game rooms, and historical results. Redis is used alongside it to manage the volatile real-time state during active sessions.
+
+---
 
 ## Entity-Relationship (ER) Diagram
 
 ```mermaid
 erDiagram
-    USER {
-        uuid id PK
-        string username
-        timestamp created_at
-        timestamp updated_at
-    }
-
     QUIZ {
         uuid id PK
         string title
-        string status "DRAFT, ACTIVE, FINISHED"
-        timestamp started_at
         timestamp created_at
+        timestamp updated_at
     }
 
     QUESTION {
         uuid id PK
         uuid quiz_id FK
         text content
-        jsonb options "e.g., [A, B, C, D]"
+        jsonb options "e.g., ['A', 'B', 'C', 'D']"
         string correct_answer
         int points "Base points for correct answer"
         int time_limit_seconds
     }
 
-    QUIZ_SESSION {
+    GAME_ROOM {
         uuid id PK
+        string pin "6-digit unique PIN"
         uuid quiz_id FK
-        uuid user_id FK
-        int total_score
-        timestamp joined_at
+        string status "WAITING, IN_PROGRESS, COMPLETED"
+        timestamp started_at
+        timestamp completed_at
+        timestamp created_at
+    }
+
+    PLAYER_RESULT {
+        uuid id PK
+        uuid game_room_id FK
+        string nickname "Display name chosen at join time"
+        int final_score
+        int rank
+        timestamp completed_at
     }
 
     ANSWER {
         uuid id PK
-        uuid session_id FK
+        uuid player_result_id FK
         uuid question_id FK
         string user_answer
         boolean is_correct
@@ -50,79 +55,127 @@ erDiagram
     }
 
     QUIZ ||--o{ QUESTION : "contains"
-    QUIZ ||--o{ QUIZ_SESSION : "has"
-    USER ||--o{ QUIZ_SESSION : "participates"
-    QUIZ_SESSION ||--o{ ANSWER : "submits"
+    QUIZ ||--o{ GAME_ROOM : "hosts"
+    GAME_ROOM ||--o{ PLAYER_RESULT : "produces"
+    PLAYER_RESULT ||--o{ ANSWER : "submits"
     QUESTION ||--o{ ANSWER : "receives"
 ```
 
+---
+
 ## PostgreSQL Tables Description
 
-### 1. `users` Table
-Stores the basic profile information of participants.
-- `id` (UUID, Primary Key)
-- `username` (VARCHAR)
-- `created_at` / `updated_at` (TIMESTAMP)
-
-### 2. `quizzes` Table
-Maintains configuration and state data for quiz rooms.
+### 1. `quizzes` Table
+Stores quiz template definitions. A quiz is a reusable collection of questions that a master can use to create one or many game rooms.
 - `id` (UUID, Primary Key)
 - `title` (VARCHAR)
-- `status` (ENUM: `DRAFT`, `ACTIVE`, `FINISHED`)
-- `started_at` (TIMESTAMP): When the live quiz officially begins
 - `created_at` / `updated_at` (TIMESTAMP)
 
-### 3. `questions` Table
-Holds the item bank attached to a specific quiz.
+> **Note:** The `status` and `started_at` fields from the old design have been removed. Status now belongs to `GameRoom`, not the quiz template itself, since the same quiz can be played in multiple rooms.
+
+### 2. `questions` Table
+Holds the item bank attached to a specific quiz template.
 - `id` (UUID, Primary Key)
-- `quiz_id` (UUID, Foreign Key -> `quizzes.id`): Indexed for fast lookups.
+- `quiz_id` (UUID, Foreign Key → `quizzes.id`): Indexed for fast lookups.
 - `content` (TEXT): The vocabulary question being asked.
-- `options` (JSONB): An array of possible multiple-choice options.
+- `options` (JSONB): An array of possible multiple-choice options (e.g., `["cat", "car", "card", "care"]`).
 - `correct_answer` (VARCHAR): The string value of the correct option.
-- `points` (INT): Base weight of the question.
-- `time_limit_seconds` (INT): Used by the API to enforce submission windows.
+- `points` (INT): Base weight of the question (default: 1000).
+- `time_limit_seconds` (INT): Per-question timer used by the game flow service.
 
-### 4. `quiz_sessions` Table
-The relation identifying a user joining a particular quiz session. Acts as the aggregator for historical scores.
+### 3. `game_rooms` Table *(New — replaces old `quiz_sessions`)*
+Represents a single live game session created by a master. A game room is an ephemeral room backed by Redis during play, and persisted to PostgreSQL for record-keeping.
 - `id` (UUID, Primary Key)
-- `quiz_id` (UUID, Foreign Key -> `quizzes.id`): Indexed.
-- `user_id` (UUID, Foreign Key -> `users.id`): Indexed.
-- `total_score` (INT): Final synchronized score evaluated at the end of the quiz.
-- `joined_at` (TIMESTAMP)
+- `pin` (VARCHAR(6), Unique): The 6-digit PIN shared by the master to invite players.
+- `quiz_id` (UUID, Foreign Key → `quizzes.id`): The quiz template being played.
+- `status` (ENUM: `WAITING`, `IN_PROGRESS`, `COMPLETED`): Current lifecycle state.
+- `started_at` (TIMESTAMP, nullable): Set when master triggers `start_quiz`.
+- `completed_at` (TIMESTAMP, nullable): Set when the last question ends.
+- `created_at` (TIMESTAMP)
 
-*Note: A composite unique constraint on `(quiz_id, user_id)` prevents users from joining multiple times and resetting their score maliciously.*
+### 4. `player_results` Table *(New — replaces old `quiz_sessions` + `users`)*
+A permanent record of a guest player's final performance after a game room completes. Players are anonymous guests (no user account required); their identity is the nickname they chose on join.
+- `id` (UUID, Primary Key)
+- `game_room_id` (UUID, Foreign Key → `game_rooms.id`): Indexed.
+- `nickname` (VARCHAR): The display name the player entered when joining.
+- `final_score` (INT): Total score at end of game, synced from Redis.
+- `rank` (INT): Final position on the leaderboard.
+- `completed_at` (TIMESTAMP)
 
 ### 5. `answers` Table
 Detailed tracking of every submitted answer for historical analytics and dispute resolution.
 - `id` (UUID, Primary Key)
-- `session_id` (UUID, Foreign Key -> `quiz_sessions.id`)
-- `question_id` (UUID, Foreign Key -> `questions.id`)
-- `user_answer` (VARCHAR): What the user selected.
-- `is_correct` (BOOLEAN): Auto-populated during calculation logic.
-- `points_awarded` (INT): Evaluated value (could factor in remaining time).
+- `player_result_id` (UUID, Foreign Key → `player_results.id`)
+- `question_id` (UUID, Foreign Key → `questions.id`)
+- `user_answer` (VARCHAR): The option the player selected.
+- `is_correct` (BOOLEAN): Auto-populated during scoring logic.
+- `points_awarded` (INT): Speed-adjusted score (factors in time remaining).
 - `submitted_at` (TIMESTAMP)
 
-## Redis Schema (In-Memory Key-Value)
+---
 
-Since PostgreSQL is not fast enough to accommodate frequent updates during sudden traffic bursts, Redis manages the volatile real-time scoring data.
+## Schema Migration Summary (vs. Previous Design)
 
-### 1. Live Leaderboard (Sorted Set)
-Tracks the real-time leaderboard rankings utilizing the `ZSET` structure in Redis.
-- **Key**: `quiz:{quiz_id}:leaderboard`
-- **Member**: `{user_id}`
+| Change | Detail |
+|--------|--------|
+| ❌ Removed | `users` table — players are now anonymous guests |
+| ❌ Removed | `QuizSession` model — replaced by two clearer models |
+| ❌ Removed | `Quiz.status`, `Quiz.started_at` — status moved to `GameRoom` |
+| ➕ Added | `GameRoom` — represents one live game room with a PIN |
+| ➕ Added | `PlayerResult` — stores final scores/ranks after completion |
+| ✏️ Modified | `Answer.session_id` → `Answer.player_result_id` |
+| ✏️ Modified | `Quiz` relation: removed `sessions`, added `gameRooms` |
+
+---
+
+## Redis Schema (In-Memory — Runtime State)
+
+All **live game state** lives in Redis. PostgreSQL only persists cold data (room metadata, final results). Redis keys are namespaced by PIN.
+
+### 1. Active Session Object (JSON String)
+Full session state used by the Gateway and GameFlowService.
+- **Key**: `session:{pin}`
+- **Value**: JSON serialized `GameSession` object
+- **TTL**: 7200 seconds (2 hours)
+```json
+{
+  "id": "uuid",
+  "pin": "483921",
+  "quizId": "uuid",
+  "gameRoomId": "uuid",
+  "status": "in_progress",
+  "currentQuestionIndex": 2,
+  "questionStartedAt": 1713450183000,
+  "players": {
+    "socket-id-xyz": { "playerId": "uuid", "nickname": "Alice", "score": 850 }
+  }
+}
+```
+
+### 2. Live Leaderboard (Sorted Set)
+Tracks real-time rankings using Redis ZSET.
+- **Key**: `session:{pin}:scores`
+- **Member**: `{playerId}`
 - **Score**: `{current_points}`
+- **TTL**: 7200 seconds
 
-*Commands heavily used*: `ZADD` (to initialize), `ZINCRBY` (to increment upon correct answer), `ZREVRANGE` (to retrieve the top 10 users rapidly).
+*Primary commands*: `ZADD` (init at 0), `ZINCRBY` (on correct answer), `ZREVRANGE ... WITHSCORES` (top 10 fetch).
 
-### 2. Live Quiz State (Hash)
-Occasionally, reading question configurations from DB can be slow. State metadata for the live quiz is cached heavily during Active conditions.
-- **Key**: `quiz:{quiz_id}:state`
-- **Fields**: 
-  - `status`: `ACTIVE`
-  - `current_question_id`: `e8f-43...`
-  - `question_start_timestamp`: `17133342...`
+### 3. Answer Distribution (Hash)
+Tracks how many players chose each option during an active question (for showing stats after question ends).
+- **Key**: `session:{pin}:q:{question_id}:dist`
+- **Fields**: option values (e.g., `"cat"`, `"car"`)
+- **Values**: count of players who selected that option
+- **TTL**: 3600 seconds
 
-### 3. Pub/Sub Channels
-Event distribution channels so distributed instances sync WebSockets smoothly.
-- **Channel**: `channel:quiz:{quiz_id}:updates`
-- **Payload Example**: `{"event": "leaderboard_update", "data": [{"user_id": "...", "score": 250, "rank": 1}]}`
+### 4. Idempotency Keys (String)
+Prevents double-submission of answers.
+- **Key**: `session:{pin}:answered:{question_id}:{player_id}`
+- **Value**: `"1"`
+- **TTL**: 3600 seconds
+- **Command**: `SETNX` (atomic — returns 0 if already exists, aborting duplicate processing)
+
+### 5. Pub/Sub Channels
+Event distribution so horizontally scaled server nodes stay in sync.
+- **Channel**: `channel:session:{pin}:updates`
+- **Payload**: `{ "event": "leaderboard_update", "data": [...] }`
