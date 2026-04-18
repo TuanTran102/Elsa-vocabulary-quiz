@@ -1,15 +1,13 @@
-# API Documentation: Real-Time Quiz Feature
+# API Documentation: Slido-Like Real-Time Quiz
 
-The Quiz API consists of two distinct layers. A traditional **RESTful HTTP API** manages stateless fetching of pre-quiz and historical data, while a persistent **WebSocket Interface** handles the high-frequency interactive features of an active quiz session.
+The Quiz API consists of two layers: a **RESTful HTTP API** for session lifecycle (creation, validation) and metadata, and a **WebSocket Interface** for real-time game flow and live leaderboard updates.
 
 ---
 
 ## 1. REST API (HTTP)
 
-Used for actions that do not require real-time streaming, such as authentication, browsing available quizzes, and viewing historical results.
-
 ### 1.1 `GET /api/v1/quizzes`
-Retrieves a paginated list of quizzes available to the user.
+Retrieves quiz templates available for a Master to host.
 
 **Response** (200 OK)
 ```json
@@ -18,130 +16,114 @@ Retrieves a paginated list of quizzes available to the user.
     {
       "id": "q-1234",
       "title": "Beginner Vocabulary Mix",
-      "status": "ACTIVE",
-      "started_at": "2026-04-17T12:00:00Z"
-    }
-  ],
-  "meta": { "total": 1, "page": 1 }
-}
-```
-
-### 1.2 `GET /api/v1/quizzes/:id`
-Retrieves detailed metadata about a specific quiz before joining.
-
-**Response** (200 OK)
-```json
-{
-  "id": "q-1234",
-  "title": "Beginner Vocabulary Mix",
-  "status": "ACTIVE",
-  "questions_count": 10
-}
-```
-
-### 1.3 `GET /api/v1/quizzes/:id/leaderboard`
-Fetches the historical, finalized leaderboard of a quiz that has ended (fetched from PostgreSQL instead of Redis).
-
-**Response** (200 OK)
-```json
-{
-  "quiz_id": "q-1234",
-  "leaderboard": [
-    {
-      "rank": 1,
-      "user_id": "u-987",
-      "username": "vocab_master",
-      "total_score": 1400
+      "questions_count": 10
     }
   ]
 }
 ```
 
+### 1.2 Session Management
+
+#### `POST /api/v1/sessions`
+Creates a new `GameRoom` (Master action). Generates a unique 6-digit PIN and initializes state in Redis.
+
+**Request Body**
+```json
+{
+  "quiz_id": "q-1234"
+}
+```
+
+**Response** (201 Created)
+```json
+{
+  "session_id": "uuid",
+  "game_room_id": "uuid",
+  "pin": "483921",
+  "quiz_title": "Beginner Vocabulary Mix"
+}
+```
+
+#### `GET /api/v1/sessions/:pin`
+Validates a PIN before a player joins. Returns basic room info.
+
+**Response** (200 OK)
+```json
+{
+  "game_room_id": "uuid",
+  "quiz_title": "Beginner Vocabulary Mix",
+  "status": "WAITING",
+  "player_count": 12
+}
+```
+
+### 1.3 `GET /api/v1/quizzes/:id/leaderboard`
+Fetches historical results for a quiz template from PostgreSQL.
+
 ---
 
 ## 2. WebSocket Interface (Socket.io)
 
-For real-time functionality during an active `status: ACTIVE` quiz session. All connections happen over a namespace (e.g., `/live-quiz`).
+### 2.1 Client → Server Events
 
-### 2.1 Client $\to$ Server Events (Requests)
+#### `join_quiz` (Player)
+Sent when a player joins a room with a PIN and nickname.
+* **Payload**: `{ "pin": "483921", "nickname": "Alice" }`
 
-#### `join_quiz`
-Sent by the client when they explicitly enter the quiz lobby or start participating.
-* **Payload**:
-  ```json
-  {
-    "quiz_id": "q-1234"
-  }
-  ```
-  *(Note: Authentication token is typically validated during the initial hardware handshake, so user_id is inferred by the server, securely).*
+#### `start_quiz` (Master)
+Triggers the transition from `WAITING` to `IN_PROGRESS`.
+* **Payload**: `{ "pin": "483921" }`
 
-#### `submit_answer`
-Sent immediately when a participant taps or clicks an option for a question.
-* **Payload**:
-  ```json
-  {
-    "quiz_id": "q-1234",
-    "question_id": "ques-555",
-    "answer": "B"
-  }
-  ```
+#### `submit_answer` (Player)
+Sent when a participant selects an option.
+* **Payload**: `{ "pin": "483921", "question_id": "q-1", "answer": "B" }`
+
+#### `next_question` (Master)
+Manually advances the quiz to the next question.
+* **Payload**: `{ "pin": "483921" }`
 
 ---
 
-### 2.2 Server $\to$ Client Events (Broadcasting)
+## 2.2 Server → Client Events (Broadcasting)
 
-#### `quiz_joined` (Direct to Client)
-Sent back specifically to the client who initiated `join_quiz` to acknowledge successful entrance.
+#### `player_joined`
+Broadcasted to all room members when a new player enters the lobby.
+* **Payload**: `{ "nickname": "Alice", "player_count": 13, "players": ["Alice", "Bob", ...] }`
+
+#### `quiz_started`
+Fired when the master starts the game.
+* **Payload**: `{ "total_questions": 10 }`
+
+#### `question_started`
+Pushed when a new question becomes active.
 * **Payload**:
   ```json
   {
-    "status": "success",
-    "current_score": 0,
-    "room": "quiz_q-1234"
+    "question_id": "q-1",
+    "text": "Correct translation for 'Apple'?",
+    "options": ["A. Quả táo", "B. Quả lê"],
+    "time_limit": 15,
+    "question_number": 1,
+    "total": 10
   }
   ```
 
-#### `participant_joined` (Broadcasted to Room)
-Fired when any new user connects to the room, so UI headers showing "Total Players" updates instantly.
-* **Payload**:
-  ```json
-  {
-    "user_id": "u-111",
-    "username": "new_player",
-    "total_participants": 42
-  }
-  ```
+#### `answer_result` (Individual)
+Direct feedback to the player after submitting an answer.
+* **Payload**: `{ "is_correct": true, "points_awarded": 850 }`
 
-#### `question_started` (Broadcasted to Room)
-Sent by the server when the timer ticks over to a new question. This is how clients sync up without hitting refresh.
-* **Payload**:
-  ```json
-  {
-    "question_id": "ques-555",
-    "content": "What is the synonym of 'Ephemeral'?",
-    "options": ["A. Permanent", "B. Temporary", "C. Strong", "D. Beautiful"],
-    "time_limit_seconds": 15,
-    "ends_at": "2026-04-17T12:05:15Z"
-  }
-  ```
-
-#### `leaderboard_update` (Broadcasted to Room)
-The core feature event. Pushed synchronously from the Redis aggregate pipeline every time scores shift meaningfully, or at a fixed interval (e.g. 500ms) over rolling submissions to avoid UI flickering.
+#### `leaderboard_update` (Broadcast)
+Live standings pushed frequently during the game.
 * **Payload**:
   ```json
   {
     "rankings": [
-      { "rank": 1, "username": "player_one", "score": 1050 },
-      { "rank": 2, "username": "the_challenger", "score": 900 }
+      { "rank": 1, "nickname": "Alice", "score": 2400 },
+      { "rank": 2, "nickname": "Bob", "score": 1950 }
     ]
   }
   ```
 
-#### `quiz_ended` (Broadcasted to Room)
-Indicates the quiz master or internal cron has closed the quiz. Clients push rendering to a final summary screen.
-* **Payload**:
-  ```json
-  {
-    "message": "Quiz has concluded. Evaluating final results."
-  }
-  ```
+#### `quiz_completed`
+Final event when all questions are answered.
+* **Payload**: `{ "final_leaderboard": [...] }`

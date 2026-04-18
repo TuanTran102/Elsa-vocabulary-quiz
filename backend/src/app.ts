@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { dummyAuthMiddleware } from './core/middlewares/dummy-auth.middleware.js';
 import quizRoutes from './modules/quiz/quiz.routes.js';
+import sessionRoutes from './modules/session/session.routes.js';
 
 const app = express();
 
@@ -14,5 +15,6 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/v1/quizzes', quizRoutes);
+app.use('/api/v1/sessions', sessionRoutes);
 
 export default app;
