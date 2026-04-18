@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String        @id @default(uuid())
+  username  String        @unique
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  sessions  QuizSession[]
+}
+
+enum QuizStatus {
+  DRAFT
+  ACTIVE
+  FINISHED
+}
+
+model Quiz {
+  id        String        @id @default(uuid())
+  title     String
+  status    QuizStatus    @default(DRAFT)
+  startedAt DateTime?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  questions Question[]
+  sessions  QuizSession[]
+}
+
+model Question {
+  id               String   @id @default(uuid())
+  quizId           String
+  content          String
+  options          Json     // Array of strings
+  correctAnswer    String
+  points           Int      @default(1000)
+  timeLimitSeconds Int      @default(30)
+  quiz             Quiz     @relation(fields: [quizId], references: [id])
+  answers          Answer[]
+}
+
+model QuizSession {
+  id         String   @id @default(uuid())
+  quizId     String
+  userId     String
+  totalScore Int      @default(0)
+  joinedAt   DateTime @default(now())
+  quiz       Quiz     @relation(fields: [quizId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+  answers    Answer[]
+
+  @@unique([quizId, userId])
+}
+
+model Answer {
+  id            String      @id @default(uuid())
+  sessionId     String
+  questionId    String
+  userAnswer    String
+  isCorrect     Boolean
+  pointsAwarded Int
+  submittedAt   DateTime    @default(now())
+  session       QuizSession @relation(fields: [sessionId], references: [id])
+  question      Question    @relation(fields: [questionId], references: [id])
+}
