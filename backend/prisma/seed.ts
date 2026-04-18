@@ -1,31 +1,21 @@
-import { PrismaClient, QuizStatus } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('Seeding database...');
 
-  // Reset database (optional but recommended for clean seeds)
-  // Delete in reverse order of dependencies
+  // Reset in reverse FK dependency order
   await prisma.answer.deleteMany();
-  await prisma.quizSession.deleteMany();
+  await prisma.playerResult.deleteMany();
+  await prisma.gameRoom.deleteMany();
   await prisma.question.deleteMany();
   await prisma.quiz.deleteMany();
-  await prisma.user.deleteMany();
 
-  // Create test user
-  const user = await prisma.user.create({
-    data: {
-      username: 'testuser',
-    },
-  });
-  console.log(`Created user: ${user.username}`);
-
-  // Create quiz
+  // Create quiz with questions
   const quiz = await prisma.quiz.create({
     data: {
       title: 'English Essentials',
-      status: QuizStatus.ACTIVE,
       questions: {
         create: [
           {
@@ -103,6 +93,39 @@ async function main() {
     },
   });
   console.log(`Created quiz: ${quiz.title} with 10 questions`);
+
+  // Sample completed GameRoom for dev testing
+  const gameRoom = await prisma.gameRoom.create({
+    data: {
+      pin: '123456',
+      quizId: quiz.id,
+      status: 'COMPLETED',
+      startedAt: new Date(Date.now() - 10 * 60 * 1000),
+      completedAt: new Date(),
+    },
+  });
+  console.log(`Created sample game room with PIN: ${gameRoom.pin}`);
+
+  // Sample PlayerResult rows
+  await prisma.playerResult.createMany({
+    data: [
+      {
+        gameRoomId: gameRoom.id,
+        nickname: 'Alice',
+        finalScore: 8500,
+        rank: 1,
+        completedAt: new Date(),
+      },
+      {
+        gameRoomId: gameRoom.id,
+        nickname: 'Bob',
+        finalScore: 6200,
+        rank: 2,
+        completedAt: new Date(),
+      },
+    ],
+  });
+  console.log('Created 2 sample player results');
 
   console.log('Seeding completed successfully!');
 }

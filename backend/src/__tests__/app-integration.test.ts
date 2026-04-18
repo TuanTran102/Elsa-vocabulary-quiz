@@ -12,7 +12,6 @@ describe('Quiz Integration Tests', () => {
     const quiz = await prisma.quiz.create({
       data: {
         title: 'Integration Test Quiz',
-        status: 'ACTIVE',
         questions: {
           create: [
             {
@@ -36,7 +35,10 @@ describe('Quiz Integration Tests', () => {
         question: { quizId: quizId }
       }
     });
-    await prisma.quizSession.deleteMany({
+    await prisma.playerResult.deleteMany({
+      where: { gameRoom: { quizId: quizId } }
+    });
+    await prisma.gameRoom.deleteMany({
       where: { quizId: quizId }
     });
     await prisma.question.deleteMany({

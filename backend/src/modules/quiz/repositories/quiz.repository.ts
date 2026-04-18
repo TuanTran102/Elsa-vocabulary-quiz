@@ -5,13 +5,9 @@ export class QuizRepository {
 
   async findAll() {
     return this.prisma.quiz.findMany({
-      where: {
-        status: 'ACTIVE',
-      },
       select: {
         id: true,
         title: true,
-        status: true,
         _count: {
           select: { questions: true }
         }

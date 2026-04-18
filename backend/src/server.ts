@@ -22,7 +22,7 @@ const io = SocketServer.init(server);
 const quizRepository = new QuizRepository(prisma);
 const quizRedisRepository = new QuizRedisRepository();
 const scoringService = new ScoringService();
-const leaderboardService = new LeaderboardService(prisma, quizRedisRepository);
+const leaderboardService = new LeaderboardService(quizRedisRepository);
 const quizAnswerService = new QuizAnswerService(
   quizRedisRepository,
   scoringService,

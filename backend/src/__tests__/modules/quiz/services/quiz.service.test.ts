@@ -15,13 +15,13 @@ describe('QuizService', () => {
 
   describe('getQuizzes', () => {
     it('should return quizzes from repository', async () => {
-      const mockQuizzes = [{ id: '1', title: 'Quiz 1', status: 'ACTIVE', _count: { questions: 5 } }];
+      const mockQuizzes = [{ id: '1', title: 'Quiz 1', _count: { questions: 5 } }];
       repositoryMock.findAll.mockResolvedValue(mockQuizzes as any);
 
       const result = await service.getQuizzes();
 
       expect(result).toEqual([
-        { id: '1', title: 'Quiz 1', status: 'ACTIVE', questions_count: 5 }
+        { id: '1', title: 'Quiz 1', questions_count: 5 }
       ]);
       expect(repositoryMock.findAll).toHaveBeenCalled();
     });

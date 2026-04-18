@@ -1,71 +1,85 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { mockDeep } from 'jest-mock-extended';
+import { mockDeep, mockReset } from 'jest-mock-extended';
 import type { DeepMockProxy } from 'jest-mock-extended';
-import type { PrismaClient } from '@prisma/client';
 import { LeaderboardService } from '../../../../modules/quiz/services/leaderboard.service.js';
 import { QuizRedisRepository } from '../../../../modules/quiz/repositories/quiz-redis.repository.js';
 
 describe('LeaderboardService', () => {
-  let prismaMock: DeepMockProxy<PrismaClient>;
   let redisRepoMock: DeepMockProxy<QuizRedisRepository>;
   let service: LeaderboardService;
 
   beforeEach(() => {
-    prismaMock = mockDeep<PrismaClient>();
     redisRepoMock = mockDeep<QuizRedisRepository>();
-    service = new LeaderboardService(prismaMock, redisRepoMock);
+    mockReset(redisRepoMock);
+    service = new LeaderboardService(redisRepoMock);
   });
 
   describe('addPoints', () => {
-    it('should call redis repository to increment score', async () => {
+    it('should call redis repository to increment score using pin and playerId', async () => {
       redisRepoMock.incrementScore.mockResolvedValue(100);
-      await service.addPoints('quiz1', 'user1', 100);
-      expect(redisRepoMock.incrementScore).toHaveBeenCalledWith('quiz1', 'user1', 100);
+      await service.addPoints('ABC123', 'player-1', 100);
+      expect(redisRepoMock.incrementScore).toHaveBeenCalledWith('ABC123', 'player-1', 100);
     });
   });
 
   describe('getLeaderboard', () => {
-    it('should return enriched leaderboard data', async () => {
+    it('should return enriched leaderboard with nicknames from Redis', async () => {
       const mockTopScores = [
-        { userId: 'user1', score: 300 },
-        { userId: 'user2', score: 200 },
+        { userId: 'player-1', score: 300 },
+        { userId: 'player-2', score: 200 },
       ];
       redisRepoMock.getTopScores.mockResolvedValue(mockTopScores);
+      redisRepoMock.getNickname.mockImplementation(async (_pin: string, playerId: string) => {
+        if (playerId === 'player-1') return 'Alice';
+        if (playerId === 'player-2') return 'Bob';
+        return null;
+      });
 
-      (prismaMock.user.findMany as any).mockResolvedValue([
-        { id: 'user1', username: 'JohnDoe' },
-        { id: 'user2', username: 'JaneDoe' },
-      ]);
-
-      const result = await service.getLeaderboard('quiz1');
+      const result = await service.getLeaderboard('ABC123');
 
       expect(result).toEqual([
-        { username: 'JohnDoe', score: 300 },
-        { username: 'JaneDoe', score: 200 },
+        { nickname: 'Alice', score: 300 },
+        { nickname: 'Bob', score: 200 },
       ]);
-      expect(prismaMock.user.findMany).toHaveBeenCalledWith({
-        where: { id: { in: ['user1', 'user2'] } },
-        select: { id: true, username: true },
-      });
+      expect(redisRepoMock.getTopScores).toHaveBeenCalledWith('ABC123', 10);
+      expect(redisRepoMock.getNickname).toHaveBeenCalledWith('ABC123', 'player-1');
+      expect(redisRepoMock.getNickname).toHaveBeenCalledWith('ABC123', 'player-2');
     });
 
-    it('should handle missing users gracefully', async () => {
+    it('should return empty array when no scores exist', async () => {
+      redisRepoMock.getTopScores.mockResolvedValue([]);
+
+      const result = await service.getLeaderboard('ABC123');
+
+      expect(result).toEqual([]);
+      expect(redisRepoMock.getNickname).not.toHaveBeenCalled();
+    });
+
+    it('should fall back to "Unknown" when nickname is not found in Redis', async () => {
       const mockTopScores = [
-        { userId: 'user1', score: 300 },
-        { userId: 'missing', score: 100 },
+        { userId: 'player-1', score: 300 },
+        { userId: 'expired-player', score: 100 },
       ];
       redisRepoMock.getTopScores.mockResolvedValue(mockTopScores);
+      redisRepoMock.getNickname.mockImplementation(async (_pin: string, playerId: string) => {
+        if (playerId === 'player-1') return 'Alice';
+        return null; // expired session
+      });
 
-      (prismaMock.user.findMany as any).mockResolvedValue([
-        { id: 'user1', username: 'JohnDoe' },
-      ]);
-
-      const result = await service.getLeaderboard('quiz1');
+      const result = await service.getLeaderboard('ABC123');
 
       expect(result).toEqual([
-        { username: 'JohnDoe', score: 300 },
-        { username: 'Unknown', score: 100 },
+        { nickname: 'Alice', score: 300 },
+        { nickname: 'Unknown', score: 100 },
       ]);
+    });
+
+    it('should respect the limit parameter', async () => {
+      redisRepoMock.getTopScores.mockResolvedValue([]);
+
+      await service.getLeaderboard('ABC123', 5);
+
+      expect(redisRepoMock.getTopScores).toHaveBeenCalledWith('ABC123', 5);
     });
   });
 });

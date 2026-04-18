@@ -7,31 +7,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String        @id @default(uuid())
-  username  String        @unique
-  createdAt DateTime      @default(now()) @map("created_at")
-  updatedAt DateTime      @updatedAt @map("updated_at")
-  sessions  QuizSession[]
-
-  @@map("users")
-}
-
-enum QuizStatus {
-  DRAFT
-  ACTIVE
-  FINISHED
+enum GameRoomStatus {
+  WAITING
+  IN_PROGRESS
+  COMPLETED
 }
 
 model Quiz {
-  id        String        @id @default(uuid())
+  id        String      @id @default(uuid())
   title     String
-  status    QuizStatus    @default(DRAFT)
-  startedAt DateTime?     @map("started_at")
-  createdAt DateTime      @default(now()) @map("created_at")
-  updatedAt DateTime      @updatedAt @map("updated_at")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
   questions Question[]
-  sessions  QuizSession[]
+  gameRooms GameRoom[]
 
   @@map("quizzes")
 }
@@ -50,30 +38,43 @@ model Question {
   @@map("questions")
 }
 
-model QuizSession {
-  id         String   @id @default(uuid())
-  quizId     String   @map("quiz_id")
-  userId     String   @map("user_id")
-  totalScore Int      @default(0) @map("total_score")
-  joinedAt   DateTime @default(now()) @map("joined_at")
-  quiz       Quiz     @relation(fields: [quizId], references: [id])
-  user       User     @relation(fields: [userId], references: [id])
-  answers    Answer[]
+model GameRoom {
+  id          String         @id @default(uuid())
+  pin         String         @unique
+  quizId      String         @map("quiz_id")
+  status      GameRoomStatus @default(WAITING)
+  startedAt   DateTime?      @map("started_at")
+  completedAt DateTime?      @map("completed_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  quiz        Quiz           @relation(fields: [quizId], references: [id])
+  results     PlayerResult[]
 
-  @@unique([quizId, userId])
-  @@map("quiz_sessions")
+  @@map("game_rooms")
+}
+
+model PlayerResult {
+  id          String    @id @default(uuid())
+  gameRoomId  String    @map("game_room_id")
+  nickname    String
+  finalScore  Int       @default(0) @map("final_score")
+  rank        Int?
+  completedAt DateTime  @map("completed_at")
+  gameRoom    GameRoom  @relation(fields: [gameRoomId], references: [id])
+  answers     Answer[]
+
+  @@map("player_results")
 }
 
 model Answer {
-  id            String      @id @default(uuid())
-  sessionId     String      @map("session_id")
-  questionId    String      @map("question_id")
-  userAnswer    String      @map("user_answer")
-  isCorrect     Boolean     @map("is_correct")
-  pointsAwarded Int         @map("points_awarded")
-  submittedAt   DateTime    @default(now()) @map("submitted_at")
-  session       QuizSession @relation(fields: [sessionId], references: [id])
-  question      Question    @relation(fields: [questionId], references: [id])
+  id              String       @id @default(uuid())
+  playerResultId  String       @map("player_result_id")
+  questionId      String       @map("question_id")
+  userAnswer      String       @map("user_answer")
+  isCorrect       Boolean      @map("is_correct")
+  pointsAwarded   Int          @map("points_awarded")
+  submittedAt     DateTime     @default(now()) @map("submitted_at")
+  playerResult    PlayerResult @relation(fields: [playerResultId], references: [id])
+  question        Question     @relation(fields: [questionId], references: [id])
 
   @@map("answers")
 }

@@ -8,7 +8,6 @@ export class QuizService {
     return quizzes.map(quiz => ({
       id: quiz.id,
       title: quiz.title,
-      status: quiz.status,
       questions_count: quiz._count.questions
     }));
   }

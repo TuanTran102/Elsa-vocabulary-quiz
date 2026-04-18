@@ -14,10 +14,10 @@ describe('QuizRepository', () => {
   });
 
   describe('findAll', () => {
-    it('should return a list of active quizzes', async () => {
+    it('should return a list of quizzes', async () => {
       const mockQuizzes = [
-        { id: '1', title: 'Quiz 1', status: 'ACTIVE' },
-        { id: '2', title: 'Quiz 2', status: 'ACTIVE' },
+        { id: '1', title: 'Quiz 1' },
+        { id: '2', title: 'Quiz 2' },
       ];
       
       (prismaMock.quiz.findMany as any).mockResolvedValue(mockQuizzes);
@@ -26,11 +26,9 @@ describe('QuizRepository', () => {
 
       expect(result).toEqual(mockQuizzes);
       expect(prismaMock.quiz.findMany).toHaveBeenCalledWith({
-        where: { status: 'ACTIVE' },
         select: {
           id: true,
           title: true,
-          status: true,
           _count: {
             select: { questions: true }
           }

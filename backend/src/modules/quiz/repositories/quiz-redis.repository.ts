@@ -9,11 +9,11 @@ export class QuizRedisRepository {
   }
 
   /**
-   * Locks answer submission for a specific user and question using SETNX.
+   * Locks answer submission for a specific player and question using SETNX.
    * Returns true if the lock was successfully acquired, false otherwise.
    */
-  async lockAnswerSubmission(quizId: string, questionId: string, userId: string): Promise<boolean> {
-    const key = `quiz:${quizId}:answered:${questionId}:${userId}`;
+  async lockAnswerSubmission(pin: string, questionId: string, playerId: string): Promise<boolean> {
+    const key = `quiz:${pin}:answered:${questionId}:${playerId}`;
     // NX: Only set the key if it does not already exist.
     // EX 3600: Set the specified expire time, in seconds.
     const result = await this.client.set(key, '1', 'EX', 3600, 'NX');
@@ -23,8 +23,8 @@ export class QuizRedisRepository {
   /**
    * Retrieves the start timestamp for a question.
    */
-  async getQuestionStartTime(quizId: string, questionId: string): Promise<number | null> {
-    const key = `quiz:${quizId}:question:${questionId}:start_time`;
+  async getQuestionStartTime(pin: string, questionId: string): Promise<number | null> {
+    const key = `quiz:${pin}:question:${questionId}:start_time`;
     const result = await this.client.get(key);
     return result ? parseInt(result, 10) : null;
   }
@@ -32,27 +32,27 @@ export class QuizRedisRepository {
   /**
    * Sets the start timestamp for a question.
    */
-  async setQuestionStartTime(quizId: string, questionId: string, startTime: number): Promise<void> {
-    const key = `quiz:${quizId}:question:${questionId}:start_time`;
+  async setQuestionStartTime(pin: string, questionId: string, startTime: number): Promise<void> {
+    const key = `quiz:${pin}:question:${questionId}:start_time`;
     await this.client.set(key, startTime.toString(), 'EX', 3600);
   }
 
   /**
-   * Increments a user's score in a quiz leaderboard.
+   * Increments a player's score in a game room leaderboard.
    */
-  async incrementScore(quizId: string, userId: string, score: number): Promise<number> {
-    const key = `quiz:${quizId}:leaderboard`;
-    const result = await this.client.zincrby(key, score, userId);
+  async incrementScore(pin: string, playerId: string, score: number): Promise<number> {
+    const key = `quiz:${pin}:leaderboard`;
+    const result = await this.client.zincrby(key, score, playerId);
     return parseFloat(result);
   }
 
   /**
-   * Retrieves the top scores from a quiz leaderboard.
+   * Retrieves the top scores from a game room leaderboard.
    */
-  async getTopScores(quizId: string, limit: number): Promise<{ userId: string; score: number }[]> {
-    const key = `quiz:${quizId}:leaderboard`;
+  async getTopScores(pin: string, limit: number): Promise<{ userId: string; score: number }[]> {
+    const key = `quiz:${pin}:leaderboard`;
     const result = await this.client.zrevrange(key, 0, limit - 1, 'WITHSCORES');
-    
+
     const scores: { userId: string; score: number }[] = [];
     for (let i = 0; i < result.length; i += 2) {
       const userId = result[i];
@@ -65,5 +65,22 @@ export class QuizRedisRepository {
       }
     }
     return scores;
+  }
+
+  /**
+   * Retrieves a player's nickname stored in the Redis session for a game room.
+   * Returns null if the session has expired or the player is not found.
+   */
+  async getNickname(pin: string, playerId: string): Promise<string | null> {
+    const key = `session:${pin}:player:${playerId}:nickname`;
+    return await this.client.get(key);
+  }
+
+  /**
+   * Stores a player's nickname in Redis for the duration of the game.
+   */
+  async setNickname(pin: string, playerId: string, nickname: string): Promise<void> {
+    const key = `session:${pin}:player:${playerId}:nickname`;
+    await this.client.set(key, nickname, 'EX', 7200); // 2 hour TTL
   }
 }

@@ -17,9 +17,9 @@ describe('Database Configuration and Models', () => {
     expect(result).toBeDefined();
   });
 
-  it('should verify the User model exists and can be queried', async () => {
-    const userCount = await prisma.user.count();
-    expect(typeof userCount).toBe('number');
+  it('should verify the GameRoom model exists and can be queried', async () => {
+    const gameRoomCount = await prisma.gameRoom.count();
+    expect(typeof gameRoomCount).toBe('number');
   });
 
   it('should verify the Quiz model exists and has 1 record from seeding', async () => {

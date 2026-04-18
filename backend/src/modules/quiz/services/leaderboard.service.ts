@@ -1,33 +1,41 @@
-import type { PrismaClient } from '@prisma/client';
 import { QuizRedisRepository } from '../repositories/quiz-redis.repository.js';
 
 export class LeaderboardService {
-  constructor(
-    private readonly prisma: PrismaClient,
-    private readonly redisRepo: QuizRedisRepository
-  ) {}
+  constructor(private readonly redisRepo: QuizRedisRepository) {}
 
-  async addPoints(quizId: string, userId: string, points: number): Promise<void> {
-    await this.redisRepo.incrementScore(quizId, userId, points);
+  /**
+   * Adds points for a player in the game room leaderboard.
+   *
+   * @param pin      - The 6-digit game room PIN used as the Redis namespace key.
+   * @param playerId - The PlayerResult ID (or socket-assigned player ID).
+   * @param points   - Points to add.
+   */
+  async addPoints(pin: string, playerId: string, points: number): Promise<void> {
+    await this.redisRepo.incrementScore(pin, playerId, points);
   }
 
-  async getLeaderboard(quizId: string, limit: number = 10): Promise<{ username: string; score: number }[]> {
-    const topScores = await this.redisRepo.getTopScores(quizId, limit);
+  /**
+   * Returns the top-N leaderboard entries with nicknames from Redis.
+   *
+   * @param pin   - The 6-digit game room PIN.
+   * @param limit - Max number of entries to return (default 10).
+   */
+  async getLeaderboard(pin: string, limit: number = 10): Promise<{ nickname: string; score: number }[]> {
+    const topScores = await this.redisRepo.getTopScores(pin, limit);
     if (topScores.length === 0) {
       return [];
     }
 
-    const userIds = topScores.map(ts => ts.userId);
-    const users = await this.prisma.user.findMany({
-      where: { id: { in: userIds } },
-      select: { id: true, username: true },
-    });
+    const enriched = await Promise.all(
+      topScores.map(async (ts) => {
+        const nickname = await this.redisRepo.getNickname(pin, ts.userId);
+        return {
+          nickname: nickname ?? 'Unknown',
+          score: ts.score,
+        };
+      })
+    );
 
-    const userMap = new Map(users.map(u => [u.id, u.username]));
-
-    return topScores.map(ts => ({
-      username: userMap.get(ts.userId) || 'Unknown',
-      score: ts.score,
-    }));
+    return enriched;
   }
 }

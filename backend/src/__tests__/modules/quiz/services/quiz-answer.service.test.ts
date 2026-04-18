@@ -42,16 +42,16 @@ describe('QuizAnswerService', () => {
   });
 
   describe('submitAnswer', () => {
-    const userId = 'user-1';
-    const quizId = 'quiz-1';
+    const playerResultId = 'player-result-1';
+    const pin = 'ABC123';
     const questionId = 'question-1';
     const answer = 'Paris';
 
-    it('should throw Error if user already submitted an answer', async () => {
+    it('should throw Error if player already submitted an answer', async () => {
       mockRedisRepo.lockAnswerSubmission.mockResolvedValue(false);
 
       await expect(
-        quizAnswerService.submitAnswer(userId, quizId, questionId, answer)
+        quizAnswerService.submitAnswer(playerResultId, pin, questionId, answer)
       ).rejects.toThrow('Already submitted answer for this question');
     });
 
@@ -60,7 +60,7 @@ describe('QuizAnswerService', () => {
       mockQuizRepo.findQuestionById.mockResolvedValue(null);
 
       await expect(
-        quizAnswerService.submitAnswer(userId, quizId, questionId, answer)
+        quizAnswerService.submitAnswer(playerResultId, pin, questionId, answer)
       ).rejects.toThrow('Question not found');
     });
 
@@ -75,11 +75,11 @@ describe('QuizAnswerService', () => {
       mockRedisRepo.getQuestionStartTime.mockResolvedValue(null);
 
       await expect(
-        quizAnswerService.submitAnswer(userId, quizId, questionId, answer)
+        quizAnswerService.submitAnswer(playerResultId, pin, questionId, answer)
       ).rejects.toThrow('Question start time not found');
     });
 
-    it('should calculate correct answer and score, then persist it', async () => {
+    it('should skip session lookup and persist answer using playerResultId on correct answer', async () => {
       mockRedisRepo.lockAnswerSubmission.mockResolvedValue(true);
       mockQuizRepo.findQuestionById.mockResolvedValue({
         id: questionId,
@@ -88,14 +88,12 @@ describe('QuizAnswerService', () => {
         timeLimitSeconds: 30,
       } as any);
       mockRedisRepo.getQuestionStartTime.mockResolvedValue(10000);
-      
+
       // Mock Date.now() to 25000 (15s passed)
       jest.spyOn(Date, 'now').mockReturnValue(25000);
 
       mockScoringService.calculateScore.mockReturnValue(500);
 
-      const mockSession = { id: 'session-1', totalScore: 0 };
-      mockPrisma.quizSession.findUnique.mockResolvedValue(mockSession as any);
       mockPrisma.$transaction.mockImplementation(async (cb: any) => await cb(mockPrisma));
       mockPrisma.answer.create.mockResolvedValue({
         id: 'answer-1',
@@ -103,14 +101,17 @@ describe('QuizAnswerService', () => {
         pointsAwarded: 500,
       } as any);
 
-      const result = await quizAnswerService.submitAnswer(userId, quizId, questionId, answer);
+      const result = await quizAnswerService.submitAnswer(playerResultId, pin, questionId, answer);
 
       expect(result.isCorrect).toBe(true);
       expect(result.pointsAwarded).toBe(500);
 
+      // No QuizSession lookup — the property doesn't exist on the new PrismaClient type
+      // The service goes straight to answer.create with playerResultId
+
       expect(mockPrisma.answer.create).toHaveBeenCalledWith({
         data: {
-          sessionId: 'session-1',
+          playerResultId,
           questionId,
           userAnswer: answer,
           isCorrect: true,
@@ -118,56 +119,46 @@ describe('QuizAnswerService', () => {
         },
       });
 
-      expect(mockPrisma.quizSession.update).toHaveBeenCalledWith({
-        where: { id: 'session-1' },
+      expect(mockLeaderboardService.addPoints).toHaveBeenCalledWith(pin, playerResultId, 500);
+    });
+
+    it('should handle incorrect answers with 0 points without calling leaderboard', async () => {
+      mockRedisRepo.lockAnswerSubmission.mockResolvedValue(true);
+      mockQuizRepo.findQuestionById.mockResolvedValue({
+        id: questionId,
+        correctAnswer: 'Paris',
+        points: 1000,
+        timeLimitSeconds: 30,
+      } as any);
+      mockRedisRepo.getQuestionStartTime.mockResolvedValue(10000);
+
+      jest.spyOn(Date, 'now').mockReturnValue(15000); // 5s passed
+
+      mockScoringService.calculateScore.mockReturnValue(833);
+
+      mockPrisma.$transaction.mockImplementation(async (cb: any) => await cb(mockPrisma));
+      mockPrisma.answer.create.mockResolvedValue({
+        id: 'answer-2',
+        isCorrect: false,
+        pointsAwarded: 0,
+      } as any);
+
+      const result = await quizAnswerService.submitAnswer(playerResultId, pin, questionId, 'London');
+
+      expect(result.isCorrect).toBe(false);
+      expect(result.pointsAwarded).toBe(0);
+
+      expect(mockPrisma.answer.create).toHaveBeenCalledWith({
         data: {
-          totalScore: {
-            increment: 500,
-          },
+          playerResultId,
+          questionId,
+          userAnswer: 'London',
+          isCorrect: false,
+          pointsAwarded: 0,
         },
       });
 
-      expect(mockLeaderboardService.addPoints).toHaveBeenCalledWith(quizId, userId, 500);
+      expect(mockLeaderboardService.addPoints).not.toHaveBeenCalled();
     });
-
-    it('should handle incorrect answers with 0 points', async () => {
-        mockRedisRepo.lockAnswerSubmission.mockResolvedValue(true);
-        mockQuizRepo.findQuestionById.mockResolvedValue({
-          id: questionId,
-          correctAnswer: 'Paris',
-          points: 1000,
-          timeLimitSeconds: 30,
-        } as any);
-        mockRedisRepo.getQuestionStartTime.mockResolvedValue(10000);
-        
-        jest.spyOn(Date, 'now').mockReturnValue(15000); // 5s passed
-  
-        // Even if scoring would give points, if isCorrect is false, points should be 0
-        mockScoringService.calculateScore.mockReturnValue(833);
-  
-        const mockSession = { id: 'session-1', totalScore: 0 };
-        mockPrisma.quizSession.findUnique.mockResolvedValue(mockSession as any);
-        mockPrisma.$transaction.mockImplementation(async (cb: any) => await cb(mockPrisma));
-        mockPrisma.answer.create.mockResolvedValue({
-          id: 'answer-2',
-          isCorrect: false,
-          pointsAwarded: 0,
-        } as any);
-  
-        const result = await quizAnswerService.submitAnswer(userId, quizId, questionId, 'London');
-  
-        expect(result.isCorrect).toBe(false);
-        expect(result.pointsAwarded).toBe(0);
-  
-        expect(mockPrisma.answer.create).toHaveBeenCalledWith({
-          data: {
-            sessionId: 'session-1',
-            questionId,
-            userAnswer: 'London',
-            isCorrect: false,
-            pointsAwarded: 0,
-          },
-        });
-      });
   });
 });

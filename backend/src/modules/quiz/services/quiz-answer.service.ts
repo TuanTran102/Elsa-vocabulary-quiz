@@ -14,11 +14,16 @@ export class QuizAnswerService {
   ) {}
 
   /**
-   * Submits an answer for a question in a quiz.
+   * Submits an answer for a question in a game room.
+   *
+   * @param playerResultId - The PlayerResult ID for the player (resolved from Redis by the Gateway).
+   * @param pin            - The 6-digit game room PIN used as the Redis namespace key.
+   * @param questionId     - The question being answered.
+   * @param answer         - The player's answer text.
    */
-  async submitAnswer(userId: string, quizId: string, questionId: string, answer: string) {
+  async submitAnswer(playerResultId: string, pin: string, questionId: string, answer: string) {
     // 1. Idempotency check via Redis
-    const lockAcquired = await this.redisRepo.lockAnswerSubmission(quizId, questionId, userId);
+    const lockAcquired = await this.redisRepo.lockAnswerSubmission(pin, questionId, playerResultId);
     if (!lockAcquired) {
       throw new Error('Already submitted answer for this question');
     }
@@ -30,7 +35,7 @@ export class QuizAnswerService {
     }
 
     // 3. Get start time from Redis
-    const startTime = await this.redisRepo.getQuestionStartTime(quizId, questionId);
+    const startTime = await this.redisRepo.getQuestionStartTime(pin, questionId);
     if (startTime === null) {
       throw new Error('Question start time not found');
     }
@@ -38,7 +43,7 @@ export class QuizAnswerService {
     // 4. Calculate correctness and score
     const isCorrect = question.correctAnswer.toLowerCase() === answer.trim().toLowerCase();
     const submissionTime = Date.now();
-    
+
     let pointsAwarded = 0;
     if (isCorrect) {
       pointsAwarded = this.scoringService.calculateScore({
@@ -49,25 +54,11 @@ export class QuizAnswerService {
       });
     }
 
-    // 5. Find QuizSession
-    const session = await this.prisma.quizSession.findUnique({
-      where: {
-        quizId_userId: {
-          quizId,
-          userId,
-        },
-      },
-    });
-
-    if (!session) {
-      throw new Error('User has not joined this quiz session');
-    }
-
-    // 6. Persistence in transaction
+    // 5. Persist answer in transaction (no QuizSession lookup needed)
     const answerRecord = await this.prisma.$transaction(async (tx) => {
       const createdAnswer = await tx.answer.create({
         data: {
-          sessionId: session.id,
+          playerResultId,
           questionId,
           userAnswer: answer,
           isCorrect,
@@ -76,17 +67,8 @@ export class QuizAnswerService {
       });
 
       if (pointsAwarded > 0) {
-        await tx.quizSession.update({
-          where: { id: session.id },
-          data: {
-            totalScore: {
-              increment: pointsAwarded,
-            },
-          },
-        });
-        
-        // Also update Redis leaderboard
-        await this.leaderboardService.addPoints(quizId, userId, pointsAwarded);
+        // Update Redis leaderboard using PIN as namespace
+        await this.leaderboardService.addPoints(pin, playerResultId, pointsAwarded);
       }
 
       return createdAnswer;
