@@ -22,7 +22,7 @@ export class GameFlowService {
     if (session.status !== SessionStatus.WAITING) throw new Error('Quiz already started');
     if (session.playerCount === 0) throw new Error('No players in room');
 
-    const quiz = await this.quizRepository.findById(session.quizId);
+    const quiz = await this.quizRepository.findByIdWithAnswers(session.quizId);
     if (!quiz) throw new Error('Quiz not found');
 
     await this.sessionService.updateStatus(pin, SessionStatus.IN_PROGRESS);
@@ -45,7 +45,7 @@ export class GameFlowService {
     const session = await this.sessionService.getSession(pin);
     if (!session || session.status !== SessionStatus.IN_PROGRESS) return;
 
-    const quiz = await this.quizRepository.findById(session.quizId);
+    const quiz = await this.quizRepository.findByIdWithAnswers(session.quizId);
     if (!quiz || !quiz.questions[index]) {
       await this.endQuiz(pin);
       return;
@@ -83,7 +83,7 @@ export class GameFlowService {
     const session = await this.sessionService.getSession(pin);
     if (!session) return;
 
-    const quiz = await this.quizRepository.findById(session.quizId);
+    const quiz = await this.quizRepository.findByIdWithAnswers(session.quizId);
     const question = quiz?.questions[index];
     if (!question) return;
 

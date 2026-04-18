@@ -39,7 +39,7 @@ describe('GameFlowService', () => {
     };
 
     quizRepositoryMock = {
-      findById: jest.fn()
+      findByIdWithAnswers: jest.fn()
     };
 
     leaderboardServiceMock = {
@@ -97,7 +97,7 @@ describe('GameFlowService', () => {
       };
 
       sessionServiceMock._setSession(pin, session);
-      quizRepositoryMock.findById.mockResolvedValue(quiz);
+      quizRepositoryMock.findByIdWithAnswers.mockResolvedValue(quiz);
 
       await service.startQuiz(pin);
 
@@ -130,7 +130,7 @@ describe('GameFlowService', () => {
       };
 
       sessionServiceMock._setSession(pin, session);
-      quizRepositoryMock.findById.mockResolvedValue(quiz);
+      quizRepositoryMock.findByIdWithAnswers.mockResolvedValue(quiz);
       sessionServiceMock.getAnswerDistribution.mockResolvedValue({ 'A': 1 });
       leaderboardServiceMock.getLeaderboard.mockResolvedValue([]);
 

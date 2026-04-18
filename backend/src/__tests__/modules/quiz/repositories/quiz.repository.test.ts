@@ -74,4 +74,26 @@ describe('QuizRepository', () => {
       expect(result).toBeNull();
     });
   });
+
+  describe('findByIdWithAnswers', () => {
+    it('should return a quiz with questions including correctAnswer', async () => {
+      const mockQuiz = {
+        id: '1',
+        title: 'Quiz 1',
+        questions: [{ id: 'q1', content: 'What is 1+1?', correctAnswer: '2' }]
+      };
+      
+      (prismaMock.quiz.findUnique as any).mockResolvedValue(mockQuiz);
+
+      const result = await repository.findByIdWithAnswers('1');
+
+      expect(result).toEqual(mockQuiz);
+      expect(prismaMock.quiz.findUnique).toHaveBeenCalledWith({
+        where: { id: '1' },
+        include: {
+          questions: true
+        }
+      });
+    });
+  });
 });
