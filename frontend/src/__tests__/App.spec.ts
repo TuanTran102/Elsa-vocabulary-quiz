@@ -1,20 +1,33 @@
 import { mount } from '@vue/test-utils';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import PrimeVue from 'primevue/config';
-import Button from 'primevue/button';
 import App from '../App.vue';
+import { createRouter, createWebHistory } from 'vue-router';
+
+// Mock Router
+const router = createRouter({
+  history: createWebHistory(),
+  routes: [{ path: '/', component: { template: '<div>Lobby</div>' } }]
+});
+
+// Mock Socket Composable
+vi.mock('@/composables/useSocket', () => ({
+  useSocket: () => ({
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+  }),
+}));
 
 describe('App Smoke Test', () => {
-  it('renders a PrimeVue button', () => {
+  it('renders the application shell', async () => {
     const wrapper = mount(App, {
       global: {
-        plugins: [PrimeVue],
-        components: {
-          'p-button': Button
-        }
+        plugins: [PrimeVue, router],
       }
     });
-    // This depends on what's in App.vue. We will update App.vue next.
-    expect(wrapper.exists()).toBe(true);
+    
+    expect(wrapper.find('header h1').text()).toBe('ELSA Quiz');
+    expect(wrapper.find('main').exists()).toBe(true);
+    expect(wrapper.find('footer').exists()).toBe(true);
   });
 });
