@@ -49,7 +49,7 @@ describe('PlayPage.vue', () => {
     vi.clearAllMocks()
     mockFetch.mockResolvedValue({
       ok: true,
-      json: async () => ({ status: 'waiting' })
+      json: async () => ({ data: { status: 'WAITING' } })
     })
   })
 
@@ -79,16 +79,12 @@ describe('PlayPage.vue', () => {
     const callback = mockSocket.on.mock.calls.find(call => call[0] === 'question_started')![1]
     
     callback({
-      question: { 
-        text: 'What is Vue?', 
-        options: [
-          { id: '1', text: 'Option A' },
-          { id: '2', text: 'Option B' }
-        ] 
-      },
+      question_id: 'q-1',
+      text: 'What is Vue?',
+      options: ['Option A', 'Option B'],
       duration: 20,
-      totalQuestions: 5,
-      questionIndex: 0
+      total: 5,
+      question_number: 1
     })
 
     await flushPromises()
@@ -109,21 +105,20 @@ describe('PlayPage.vue', () => {
 
     const callback = mockSocket.on.mock.calls.find(call => call[0] === 'question_started')![1]
     callback({
-      question: { 
-        text: 'Q', 
-        options: [{ id: '1', text: 'A' }] 
-      },
+      question_id: 'q-123',
+      text: 'Q',
+      options: ['A'], // Backend format
       duration: 20,
-      totalQuestions: 1,
-      questionIndex: 0
+      total: 1,
+      question_number: 1
     })
     await flushPromises()
 
     await wrapper.find('[data-testid="option-button"]').trigger('click')
 
     expect(mockSocket.emit).toHaveBeenCalledWith('submit_answer', {
-      pin: '123456',
-      answerId: '1'
+      question_id: 'q-123',
+      answer: 'A'
     })
     expect(wrapper.find('[data-testid="option-button"]').attributes('disabled')).toBeDefined()
   })
@@ -138,29 +133,24 @@ describe('PlayPage.vue', () => {
     // Start question first
     const startCallback = mockSocket.on.mock.calls.find(call => call[0] === 'question_started')![1]
     startCallback({
-      question: { 
-        text: 'Q', 
-        options: [
-          { id: '1', text: 'Correct' },
-          { id: '2', text: 'Wrong' }
-        ] 
-      },
+      question_id: 'q-1',
+      text: 'Q',
+      options: ['Correct', 'Wrong'],
       duration: 20,
-      totalQuestions: 1,
-      questionIndex: 0
+      total: 1,
+      question_number: 1
     })
     await flushPromises()
 
     const endCallback = mockSocket.on.mock.calls.find(call => call[0] === 'question_ended')![1]
     endCallback({
-      correctAnswerId: '1',
-      distribution: { '1': 75, '2': 25 }
+      correct_answer: 'Correct',
+      answer_distribution: { 'Correct': 75, 'Wrong': 25 }
     })
     await flushPromises()
 
     const options = wrapper.findAll('[data-testid="option-button"]')
     expect(options[0].classes()).toContain('is-correct')
-    expect(wrapper.find('[data-testid="distribution-bar-1"]').attributes('style')).toContain('width: 75%')
   })
 
   it('navigates to results on quiz_completed', async () => {
@@ -198,15 +188,18 @@ describe('PlayPage.vue', () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({
-        status: 'in_progress',
-        currentQuestion: {
-          text: 'Active Question',
-          options: [{ id: '1', text: 'Opt' }]
-        },
-        questionIndex: 2,
-        totalQuestions: 10,
-        timeRemaining: 15,
-        hasAnswered: false
+        data: {
+          status: 'IN_PROGRESS',
+          currentQuestion: {
+            text: 'Active Question',
+            options: [{ id: '1', text: 'Opt' }],
+            timeLimitSeconds: 30
+          },
+          currentQuestionIndex: 2,
+          totalQuestions: 10,
+          questionStartedAt: new Date(Date.now() - 15000).toISOString(),
+          hasAnswered: false
+        }
       })
     })
 

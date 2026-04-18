@@ -29,8 +29,12 @@ describe('QuizGateway', () => {
     };
 
     const leaderboardServiceMock = {
-      getLeaderboard: jest.fn()
+      getLeaderboard: jest.fn(),
+      getPlayerScore: jest.fn(),
+      getPlayerRank: jest.fn()
     };
+    (leaderboardServiceMock.getPlayerScore as any).mockResolvedValue(1000);
+    (leaderboardServiceMock.getPlayerRank as any).mockResolvedValue(1);
 
     sessionServiceMock = {
       createSession: jest.fn(),
@@ -119,10 +123,10 @@ describe('QuizGateway', () => {
       clientSocket.emit('submit_answer', { question_id: questionId, answer });
     });
 
-    clientSocket.on('answer_status', (data) => {
+    clientSocket.on('answer_result', (data) => {
       expect(data.success).toBe(true);
-      expect(data.is_correct).toBe(true);
-      expect(data.points_awarded).toBe(500);
+      expect(data.isCorrect).toBe(true);
+      expect(data.points).toBe(500);
       done();
     });
 

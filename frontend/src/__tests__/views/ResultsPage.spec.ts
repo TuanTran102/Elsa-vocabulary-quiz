@@ -45,7 +45,9 @@ describe('ResultsPage.spec.ts', () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({
-        leaderboard: [{ nickname: 'Me', score: 5000, rank: 1 }]
+        data: {
+          leaderboard: [{ nickname: 'Me', score: 5000, rank: 1 }]
+        }
       })
     })
 
@@ -65,12 +67,14 @@ describe('ResultsPage.spec.ts', () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({
-        leaderboard: [
-          { nickname: 'Me', score: 5000, rank: 1 },
-          { nickname: 'Player 2', score: 4000, rank: 2 },
-          { nickname: 'Player 3', score: 3000, rank: 3 },
-          { nickname: 'Player 4', score: 2000, rank: 4 }
-        ]
+        data: {
+          leaderboard: [
+            { nickname: 'Me', score: 5000, rank: 1 },
+            { nickname: 'Player 2', score: 4000, rank: 2 },
+            { nickname: 'Player 3', score: 3000, rank: 3 },
+            { nickname: 'Player 4', score: 2000, rank: 4 }
+          ]
+        }
       })
     })
 
@@ -93,7 +97,9 @@ describe('ResultsPage.spec.ts', () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({
-        leaderboard: [{ nickname: 'Me', score: 5000, rank: 1 }]
+        data: {
+          leaderboard: [{ nickname: 'Me', score: 5000, rank: 1 }]
+        }
       })
     })
 
@@ -112,7 +118,9 @@ describe('ResultsPage.spec.ts', () => {
   it('navigates to join on Play Again click', async () => {
     mockFetch.mockResolvedValue({
       ok: true,
-      json: async () => ({ leaderboard: [] })
+      json: async () => ({
+        data: { leaderboard: [] }
+      })
     })
 
     const wrapper = mount(ResultsPage, {

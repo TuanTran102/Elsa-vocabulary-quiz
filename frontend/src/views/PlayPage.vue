@@ -230,7 +230,7 @@ const getOptionClass = (optionId: string) => {
           :class="getOptionClass(option.id)"
           data-testid="option-button"
         >
-          <div class="flex justify-between items-center relative z-10">
+          <div class="relative z-10">
             <span>{{ option.text }}</span>
           </div>
         </button>

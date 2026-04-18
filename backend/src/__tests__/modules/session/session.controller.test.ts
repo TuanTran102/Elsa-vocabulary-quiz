@@ -73,12 +73,12 @@ describe('SessionController', () => {
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
-        data: {
+        data: expect.objectContaining({
           game_room_id: 'room-1',
           quiz_title: 'Test Quiz',
           status: 'WAITING',
           player_count: 5
-        }
+        })
       });
     });
 

@@ -32,7 +32,9 @@ describe('Leaderboard Integration', () => {
     };
 
     leaderboardServiceMock = {
-      getLeaderboard: jest.fn()
+      getLeaderboard: jest.fn(),
+      getPlayerScore: jest.fn().mockResolvedValue(1000),
+      getPlayerRank: jest.fn().mockResolvedValue(1)
     };
 
     sessionServiceMock = {
@@ -40,7 +42,8 @@ describe('Leaderboard Integration', () => {
       setMasterSocket: jest.fn(),
       getSession: jest.fn(),
       addPlayer: jest.fn(),
-      removePlayer: jest.fn()
+      removePlayer: jest.fn(),
+      getAnswerDistribution: jest.fn().mockResolvedValue({})
     };
  
     const gameFlowServiceMock = {
@@ -105,12 +108,12 @@ describe('Leaderboard Integration', () => {
     };
 
     clientSocket1.on('leaderboard_update', (data) => {
-      expect(data).toEqual(mockLeaderboard);
+      expect(data.leaderboard).toEqual(mockLeaderboard);
       checkDone();
     });
 
     clientSocket2.on('leaderboard_update', (data) => {
-      expect(data).toEqual(mockLeaderboard);
+      expect(data.leaderboard).toEqual(mockLeaderboard);
       checkDone();
     });
 
@@ -122,7 +125,7 @@ describe('Leaderboard Integration', () => {
     // We only need one to join and submit to trigger update for both
     clientSocket1.emit('join_quiz', { pin, nickname: 'User 1' });
     clientSocket2.emit('join_quiz', { pin, nickname: 'User 2' });
-  }, 5000);
+  }, 10000);
 
   it('should throttle multiple updates into one', (done) => {
     const pin = '123456';

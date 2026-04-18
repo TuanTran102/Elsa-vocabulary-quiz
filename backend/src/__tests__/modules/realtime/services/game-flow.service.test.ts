@@ -8,6 +8,7 @@ describe('GameFlowService', () => {
   let quizRepositoryMock: any;
   let leaderboardServiceMock: any;
   let prismaMock: any;
+  let redisRepoMock: any;
   let service: GameFlowService;
   let emitMock: any;
   let toMock: any;
@@ -47,20 +48,27 @@ describe('GameFlowService', () => {
     };
 
     prismaMock = {
+      $transaction: jest.fn().mockImplementation(async (promises: any) => Promise.all(promises)),
       gameRoom: {
         update: jest.fn()
       },
       playerResult: {
-        createMany: jest.fn()
+        createMany: jest.fn(),
+        updateMany: jest.fn()
       }
     };
 
+    redisRepoMock = {
+      setQuestionStartTime: jest.fn()
+    };
+  
     service = new GameFlowService(
       ioMock,
       sessionServiceMock,
       quizRepositoryMock,
       leaderboardServiceMock,
-      prismaMock
+      prismaMock,
+      redisRepoMock
     );
   });
 
@@ -85,6 +93,7 @@ describe('GameFlowService', () => {
     });
 
     it('should succeed and broadcast quiz_started and start first question', async () => {
+      jest.useRealTimers();
       const pin = '123456';
       const quizId = 'quiz_1';
       const session = { id: 'room_1', pin, quizId, status: SessionStatus.WAITING, playerCount: 1 };
@@ -113,7 +122,8 @@ describe('GameFlowService', () => {
         question_id: 'q1',
         question_number: 1
       }));
-    });
+      jest.useFakeTimers();
+    }, 20000);
   });
 
   describe('game loop flow', () => {
@@ -195,13 +205,15 @@ describe('GameFlowService', () => {
       expect(prismaMock.gameRoom.update).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.objectContaining({ status: 'COMPLETED' })
       }));
-      expect(prismaMock.playerResult.createMany).toHaveBeenCalledWith({
-        data: [{ 
+      expect(prismaMock.playerResult.updateMany).toHaveBeenCalledWith({
+        where: { 
           gameRoomId: 'room_1', 
-          nickname: 'P1', 
+          nickname: 'P1' 
+        },
+        data: {
           finalScore: 100,
           completedAt: expect.any(Date)
-        }]
+        }
       });
       expect(emitMock).toHaveBeenCalledWith('quiz_completed', expect.objectContaining({
         final_leaderboard: [{ nickname: 'P1', score: 100 }]

@@ -38,8 +38,8 @@ describe('LeaderboardService', () => {
       const result = await service.getLeaderboard('ABC123');
 
       expect(result).toEqual([
-        { nickname: 'Alice', score: 300 },
-        { nickname: 'Bob', score: 200 },
+        { nickname: 'Alice', score: 300, rank: 1 },
+        { nickname: 'Bob', score: 200, rank: 2 },
       ]);
       expect(redisRepoMock.getTopScores).toHaveBeenCalledWith('ABC123', 10);
       expect(redisRepoMock.getNickname).toHaveBeenCalledWith('ABC123', 'player-1');
@@ -69,8 +69,8 @@ describe('LeaderboardService', () => {
       const result = await service.getLeaderboard('ABC123');
 
       expect(result).toEqual([
-        { nickname: 'Alice', score: 300 },
-        { nickname: 'Unknown', score: 100 },
+        { nickname: 'Alice', score: 300, rank: 1 },
+        { nickname: 'Unknown', score: 100, rank: 2 },
       ]);
     });
 
