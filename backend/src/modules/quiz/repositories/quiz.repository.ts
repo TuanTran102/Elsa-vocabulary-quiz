@@ -35,4 +35,10 @@ export class QuizRepository {
       }
     });
   }
+
+  async findQuestionById(id: string) {
+    return this.prisma.question.findUnique({
+      where: { id },
+    });
+  }
 }

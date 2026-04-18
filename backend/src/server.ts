@@ -3,20 +3,33 @@ import app from './app.js';
 import { SocketServer } from './core/socket/socket.server.js';
 import { QuizGateway } from './modules/realtime/quiz.gateway.js';
 import { QuizRepository } from './modules/quiz/repositories/quiz.repository.js';
+import { QuizRedisRepository } from './modules/quiz/repositories/quiz-redis.repository.js';
+import { ScoringService } from './modules/quiz/services/scoring.service.js';
+import { QuizAnswerService } from './modules/quiz/services/quiz-answer.service.js';
 import prisma from './config/db.js';
 import dotenv from 'dotenv';
-
+ 
 dotenv.config();
-
+ 
 const port = process.env.PORT || 3000;
 const server = http.createServer(app);
-
+ 
 // Initialize SocketServer
 const io = SocketServer.init(server);
+ 
+// Initialize Dependencies
+const quizRepository = new QuizRepository(prisma);
+const quizRedisRepository = new QuizRedisRepository();
+const scoringService = new ScoringService();
+const quizAnswerService = new QuizAnswerService(
+  quizRedisRepository,
+  scoringService,
+  quizRepository,
+  prisma
+);
 
 // Initialize Gateways
-const quizRepository = new QuizRepository(prisma);
-new QuizGateway(io, quizRepository);
+new QuizGateway(io, quizRepository, quizAnswerService);
 
 if (process.env.NODE_ENV !== 'test') {
   server.listen(port, () => {

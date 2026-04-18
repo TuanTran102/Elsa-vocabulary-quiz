@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { io as Client, Socket as ClientSocket } from 'socket.io-client';
 import { QuizGateway } from '../../../modules/realtime/quiz.gateway.js';
+import { disconnectRedis } from '../../../config/redis.js';
 
 describe('QuizGateway', () => {
   let io: Server;
@@ -10,7 +11,8 @@ describe('QuizGateway', () => {
   let port: number;
   let clientSocket: ClientSocket;
   let quizRepositoryMock: any;
-
+  let quizAnswerServiceMock: any;
+ 
   beforeEach((done) => {
     server = createServer();
     io = new Server(server);
@@ -18,8 +20,12 @@ describe('QuizGateway', () => {
     quizRepositoryMock = {
       findById: jest.fn()
     };
-
-    new QuizGateway(io, quizRepositoryMock);
+ 
+    quizAnswerServiceMock = {
+      submitAnswer: jest.fn()
+    };
+ 
+    new QuizGateway(io, quizRepositoryMock, quizAnswerServiceMock as any);
 
     server.listen(() => {
       port = (server.address() as any).port;
@@ -36,6 +42,10 @@ describe('QuizGateway', () => {
     io.close();
     clientSocket.close();
     server.close();
+  });
+  
+  afterAll(async () => {
+    await disconnectRedis();
   });
 
   it('should join quiz room and emit quiz_joined', (done) => {
@@ -72,5 +82,23 @@ describe('QuizGateway', () => {
     });
 
     clientSocket.emit('join_quiz', { quiz_id: quizId });
+  });
+
+  it('should handle submit_answer and emit answer_status', (done) => {
+    const quizId = 'quiz_123';
+    const questionId = 'question_1';
+    const answer = 'Paris';
+    const mockResult = { isCorrect: true, pointsAwarded: 500 };
+
+    quizAnswerServiceMock.submitAnswer.mockResolvedValue(mockResult);
+
+    clientSocket.on('answer_status', (data) => {
+      expect(data.success).toBe(true);
+      expect(data.is_correct).toBe(true);
+      expect(data.points_awarded).toBe(500);
+      done();
+    });
+
+    clientSocket.emit('submit_answer', { quiz_id: quizId, question_id: questionId, answer });
   });
 });
