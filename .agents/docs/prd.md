@@ -1,4 +1,4 @@
-# 📝 Real-Time Quiz: User Story & Requirements
+# 📝 Real-Time Quiz: Requirements
 
 ## 📖 Overview
 Welcome to the **Real-Time Quiz coding challenge**! Your task is to create a technical solution for a real-time quiz feature for an **English learning application**. 
