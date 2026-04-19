@@ -90,7 +90,7 @@ graph TD
 
 ## Technologies and Tools
 
-- **Backend: Node.js + TypeScript (NestJS/Express)**
+- **Backend: Node.js + TypeScript (Express)**
   - Event-driven, non-blocking I/O for high-concurrency WebSocket connections.
 
 - **Real-Time Communication: Socket.io**
@@ -105,6 +105,6 @@ graph TD
   - ACID-compliant persistence for quiz templates and post-game records.
   - Prisma provides end-to-end TypeScript type safety and auto-generated migrations.
 
-- **Containerization & Orchestration: Docker + Kubernetes**
+- **Containerization & Orchestration: Docker**
   - Horizontal pod autoscaling to handle traffic spikes (e.g., hundreds of players joining simultaneously).
   - Redis cluster mode for high availability of session state.
