@@ -112,19 +112,6 @@ Detailed tracking of every submitted answer for historical analytics and dispute
 - `points_awarded` (INT): Speed-adjusted score (factors in time remaining).
 - `submitted_at` (TIMESTAMP)
 
----
-
-## Schema Migration Summary (vs. Previous Design)
-
-| Change | Detail |
-|--------|--------|
-| ❌ Removed | `users` table — players are now anonymous guests |
-| ❌ Removed | `QuizSession` model — replaced by two clearer models |
-| ❌ Removed | `Quiz.status`, `Quiz.started_at` — status moved to `GameRoom` |
-| ➕ Added | `GameRoom` — represents one live game room with a PIN |
-| ➕ Added | `PlayerResult` — stores final scores/ranks after completion |
-| ✏️ Modified | `Answer.session_id` → `Answer.player_result_id` |
-| ✏️ Modified | `Quiz` relation: removed `sessions`, added `gameRooms` |
 
 ---
 
