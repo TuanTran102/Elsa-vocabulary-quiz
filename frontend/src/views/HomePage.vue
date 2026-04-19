@@ -102,6 +102,7 @@
   filter: blur(80px);
   opacity: 0.3;
   z-index: 1;
+  pointer-events: none;
 }
 
 .bubble-1 {

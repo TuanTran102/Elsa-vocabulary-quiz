@@ -1,41 +1,79 @@
+# 📝 User Stories: Real-Time Vocabulary Quiz
 
-Overview
-Welcome to the Real-Time Quiz coding challenge! Your task is to create a technical solution for a real-time quiz feature for an English learning application. This feature will allow users to answer questions in real-time, compete with others, and see their scores updated live on a leaderboard.
+Welcome to the **Real-Time Vocabulary Quiz**! This feature is designed to transform English learning into a competitive, high-engagement experience. Users can join live sessions, compete with peers, and see their progress reflected instantly on a global leaderboard.
 
-Acceptance Criteria
-1. User Participation:
+---
 
-1.1 Users should be able to join a quiz session using a unique quiz ID.
-1.2 The system should support multiple users joining the same quiz session simultaneously.
+## 👥 User Roles
 
-2.Real-Time Score Updates:
+| Role | Description |
+| :--- | :--- |
+| **Host (Master)** | Creates the session, manages the room, and controls the game flow. |
+| **Player (Participant)** | Joins the room via PIN, answers questions, and competes for the top rank. |
 
-2.1 As users submit answers, their scores should be updated in real-time.
-2.2 The scoring system must be accurate and consistent.
+---
 
-3. Real-Time Leaderboard:
+## 🗺️ User Story Map
 
-3.1 A leaderboard should display the current standings of all participants.
-3.2 The leaderboard should update promptly as scores change.
+To make the requirements clearer, we have broken down the stories by the **Game Lifecycle**:
 
-Part 1: System Design
+### 🏗️ Phase 1: Session Setup & Joining
+| As a... | I want to... | So that... |
+| :--- | :--- | :--- |
+| **Host** | Select an existing quiz template and create a new room | I can prepare a session for my classroom or group in seconds. |
+| **Host** | Receive a unique 6-digit PIN | I can easily share it via chat or screen with my audience. |
+| **Player** | Enter a PIN and a screen nickname | I can join the session as a guest without a tedious registration process. |
+| **Player** | Wait in a live lobby and see other joined players | I know I've joined correctly and feel part of the group before it starts. |
 
-System Design Document:
-Architecture Diagram: Create an architecture diagram illustrating component interactions (server, client apps, database, real-time communication layer, etc.).
-Component Description: Describe each component's role.
-Data Flow: Explain how data flows through the system from when a user joins a quiz to when the leaderboard is updated.
-Technologies and Tools: List and justify the technologies and tools chosen for each component.
+### 🎮 Phase 2: Live Gameplay
+| As a... | I want to... | So that... |
+| :--- | :--- | :--- |
+| **Host** | Manually trigger the start of the first question | I can ensure everyone is ready before the timer begins. |
+| **Player** | Answer multiple-choice questions within a time limit | I can test my vocabulary knowledge and cognitive speed. |
+| **Player** | Earn more points for answering faster | There is a fair and exciting competitive advantage for quick thinking. |
+| **Player** | See immediate status ("Correct" or "Wrong") after submitting | I get instant reinforcement or correction of my vocabulary knowledge. |
 
-Part 2: Implementation
+### 🏆 Phase 3: Leaderboard & Competition
+| As a... | I want to... | So that... |
+| :--- | :--- | :--- |
+| **User** | View a real-time leaderboard after each question | I can see my current standing and feel motivated to climb higher. |
+| **Host** | See the distribution of answers from all players | I can identify exactly which words are difficult for the group to learn. |
+| **User** | View the final podium at the end of the quiz | We can celebrate the top performers and conclude the session effectively. |
 
-Requirements for the Implemented Component:
+---
 
-Real-time Quiz Participation: Users should be able to join a quiz session using a unique quiz ID.
-Real-time Score Updates: Users' scores should be updated in real-time as they submit answers.
-Real-time Leaderboard: A leaderboard should display the current standings of all participants in real-time.
+## 🎯 Acceptance Criteria
 
-Scalability: Design and implement your component with scalability in mind. Consider how the system would handle a large number of users or quiz sessions. Discuss any trade-offs you made in your design and implementation.
-Performance: Your component should perform well even under heavy load. Consider how you can optimize your code and your use of resources to ensure high performance.
-Reliability: Your component should be reliable and handle errors gracefully. Consider how you can make your component resilient to failures.
-Maintainability: Your code should be clean, well-organized, and easy to maintain. Consider how you can make it easy for other developers to understand and modify your code.
-Monitoring and Observability: Discuss how you would monitor the performance of your component and diagnose issues. Consider how you can make your component observable.
+### 1. User Participation
+| ID | Requirement | Description |
+| :--- | :--- | :--- |
+| **AC 1.1** | **Join via PIN** | Users must be able to join a specific quiz session using a unique 6-digit PIN. |
+| **AC 1.2** | **High Concurrency** | The system must support hundreds of users joining the same session simultaneously. |
+| **AC 1.3** | **Lobby Experience** | Players should see a live list of other participants in the "Waiting Room". |
+
+### 2. Real-Time Interactions
+| ID | Requirement | Description |
+| :--- | :--- | :--- |
+| **AC 2.1** | **Instant Scoring** | Scores must be calculated and updated in real-time immediately after an answer is submitted. |
+| **AC 2.2** | **Dynamic Leaderboard** | The leaderboard must shift positions instantly as players earn points. |
+| **AC 2.3** | **Live Distribution** | Hosts should see a real-time bar chart of per-option answer counts. |
+
+---
+
+## 🚀 Non-Functional Requirements
+
+### 🏗️ Scalability
+- [ ] Support horizontal scaling of backend nodes using a Redis Pub/Sub adapter.
+- [ ] Use Redis Sorted Sets for $O(\log N)$ leaderboard complexity.
+
+### ⚡ Performance
+- [ ] Broadcast throttling to prevent network congestion (max 1 leaderboard update per second per room).
+- [ ] Server-side time delta calculation to prevent client-side cheating.
+
+### 🛡️ Reliability & Security
+- [ ] Graceful handle of disconnections (players can rejoin using the same PIN + Nickname).
+- [ ] Secure Host Dashboard (Master privileges assigned only to the socket that created the session).
+
+---
+> [!TIP]
+> **Pro Tip:** Make sure the transition between the "Waiting Lobby" and the "Play Page" is smooth for all connected sockets when the host clicks "Start".
